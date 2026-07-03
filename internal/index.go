@@ -7,7 +7,7 @@ type Index struct {
 	DestinationIdGroup map[string][]Event
 }
 
-func buildIndex(events []Event) Index {
+func BuildIndex(events []Event) Index {
 
 	idx := Index{
 		EventIdIndex:       make(map[string]Event),
@@ -39,4 +39,25 @@ func buildIndex(events []Event) Index {
 	}
 
 	return idx
+}
+
+// функция возвращает Event по event_id
+func (idx Index) GetEvent(eventId string) (Event, bool) {
+	event, isExist := idx.EventIdIndex[eventId]
+	return event, isExist
+}
+
+// функция возвращает все Event пользователя с user_id
+func (idx Index) GetEventByUser(userId string) []Event {
+	return idx.UserIdGroup[userId]
+}
+
+// функция возвращает все Event пользователя с file_id
+func (idx Index) GetEventByFile(fileId string) []Event {
+	return idx.FileIdGroup[fileId]
+}
+
+// функция возвращает все Event пользователя с destination_id
+func (idx Index) GetEventByDestination(userId string) []Event {
+	return idx.DestinationIdGroup[userId]
 }
