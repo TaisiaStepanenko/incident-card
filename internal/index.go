@@ -1,15 +1,42 @@
 package internal
 
-func buildIndex(events []Event) map[string]Event {
-	eventIndex := make(map[string]Event)
+type Index struct {
+	EventIdIndex       map[string]Event
+	UserIdGroup        map[string][]Event
+	FileIdGroup        map[string][]Event
+	DestinationIdGroup map[string][]Event
+}
+
+func buildIndex(events []Event) Index {
+
+	idx := Index{
+		EventIdIndex:       make(map[string]Event),
+		UserIdGroup:        make(map[string][]Event),
+		FileIdGroup:        make(map[string][]Event),
+		DestinationIdGroup: make(map[string][]Event),
+	}
 
 	for _, event := range events {
-		_, isExist := eventIndex[event.EventID]
+		// Индекс по event_id
+		_, isExist := idx.EventIdIndex[event.EventID] // проверка на дубликат
 		if isExist {
 			continue
 		}
-		eventIndex[event.EventID] = event
+		idx.EventIdIndex[event.EventID] = event
+
+		// Группировка по user_id
+		idx.UserIdGroup[event.UserID] = append(idx.UserIdGroup[event.UserID], event)
+
+		// Группировка по file_id
+		if event.FileID != nil {
+			idx.FileIdGroup[*event.FileID] = append(idx.FileIdGroup[*event.FileID], event)
+		}
+
+		// Группировка по destination_id
+		if event.DestinationID != nil {
+			idx.DestinationIdGroup[*event.DestinationID] = append(idx.DestinationIdGroup[*event.DestinationID], event)
+		}
 	}
 
-	return eventIndex
+	return idx
 }
