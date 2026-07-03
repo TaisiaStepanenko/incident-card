@@ -21,13 +21,18 @@ func main() {
 		return
 	}
 
-	var eventsFile, eventId string
+	var eventsFile, eventId, beforeEvent, afterEvent string
 
 	for i := 1; i < len(args); i += 2 {
-		if (args[i] == "--events") {
+		switch args[i] {
+		case "--events":
 			eventsFile = args[i+1]
-		} else if (args[i] == "--event-id") {
+		case "--event-id":
 			eventId = args[i+1]
+		case "--before":
+			beforeEvent = args[i+1]
+		case "--after":
+			afterEvent =args[i+1]
 		}
 	}
 
@@ -55,5 +60,11 @@ func main() {
 		fmt.Printf("Найдено %d событий с файлом %s\n", countEvents, *mainEvent.FileID)
 	}
 
+	
+	timeEvents := internal.GetEventsInTimeRange(events, mainEvent.TimeStamp, beforeEvent, afterEvent)
+	fmt.Printf("Найдено %d событий, произошедших в данный период времени\n", len(timeEvents))
+	for _, event := range timeEvents {
+		fmt.Printf("Событие %s, Время: %s\n", event.EventID, event.TimeStamp)
+	}
 
 }
