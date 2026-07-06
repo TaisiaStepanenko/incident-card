@@ -62,7 +62,10 @@ func main() {
 	}
 
 	
-	timeEvents := internal.GetEventsInTimeRange(events, mainEvent.TimeStamp, beforeEvent, afterEvent)
+	timeEvents, err := internal.GetEventsInTimeRange(events, mainEvent.TimeStamp, beforeEvent, afterEvent)
+	if (err != nil) {
+		log.Fatalf("Ошибка при получении временного контекста событий: %v", err)
+	}
 	fmt.Printf("Найдено %d событий, произошедших в данный период времени\n", len(timeEvents))
 	for _, event := range timeEvents {
 		fmt.Printf("Событие %s, Время: %s\n", event.EventID, event.TimeStamp)

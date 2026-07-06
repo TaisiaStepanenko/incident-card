@@ -2,12 +2,11 @@ package internal
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"time"
 )
 
-func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent string) []*Event {
+func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent string) ([]*Event, error) {
 	var eventsInRange []*Event
 	var beforeMainTime, afterMainTime time.Duration
 	var err error
@@ -15,20 +14,20 @@ func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent
 	if (beforeEvent != "") {
 		beforeMainTime, err = time.ParseDuration(beforeEvent) 
 		if (err != nil) {
-			log.Fatalf("Задан неверный формат --before: %v", err)
+			return nil, fmt.Errorf("Задан неверный формат --before: %v", err)
 		}
 	}
 
 	if (afterEvent != "") {
 		afterMainTime, err = time.ParseDuration(afterEvent)
 		if (err != nil) {
-			log.Fatalf("Задан неверный формат --after: %v", err)
+			return nil, fmt.Errorf("Задан неверный формат --after: %v", err)
 		}
 	}
 
 	mainTime, err := time.Parse(time.RFC3339, mainEventTime)
 	if (err != nil) {
-		log.Fatalf("Ошибка при парсинге времени главного события: %v", err)
+		return nil, fmt.Errorf("Ошибка при парсинге времени главного события: %v", err)
 	}
 	startTime := mainTime.Add(-beforeMainTime)
 	endTime := mainTime.Add(afterMainTime)
@@ -38,7 +37,6 @@ func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent
 		event := &events[i]
 		eventTime, err := time.Parse(time.RFC3339, event.TimeStamp)
 		if (err != nil) {
-			fmt.Printf("Ошибка при парсинге времени события %s: %v", event.EventID, err)
 			continue
 		}
 
@@ -55,5 +53,5 @@ func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent
 		return time_i.Before(time_j)
 	})
 
-	return eventsInRange
+	return eventsInRange, nil
 }

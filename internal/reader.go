@@ -21,6 +21,9 @@ func ReadEvents(filePath string) ([]Event, error) {
 	lineNumber := 0
 	const maxLineLength = 10 * 1024 * 1024
 
+	buffer := make([]byte, 0, maxLineLength + maxLineLength)
+	scanner.Buffer(buffer, maxLineLength + maxLineLength)
+
 	for scanner.Scan() {
 		lineNumber++
 		line := scanner.Text()
@@ -29,7 +32,7 @@ func ReadEvents(filePath string) ([]Event, error) {
 		}
 
 		if (len(line) > maxLineLength) {
-			fmt.Fprintf(os.Stderr, "Строка %d слишком длинная", lineNumber) // проверяем слишком длинные значения
+			fmt.Fprintf(os.Stderr, "Строка %d слишком длинная\n", lineNumber) // проверяем слишком длинные значения
 			continue
 		}
 
