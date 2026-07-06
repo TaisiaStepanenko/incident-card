@@ -8,12 +8,7 @@ import (
 	"github.com/TaisiaStepanenko/incident-card/internal"
 )
 
-func main() {
-	events, err := internal.ReadEvents("testdata/eventsList.jsonl")
-	if err != nil {
-		log.Fatalf("Ошибка: %v\n", err)
-	}
-	fmt.Printf("Прочитано %d событий\n", len(events))   
+func main() {  
 
 	args := os.Args
 	if (len(args) < 5) {
@@ -40,6 +35,12 @@ func main() {
 		fmt.Println("Необходимо передать --events и --events-id")
 		return
 	}
+
+	events, err := internal.ReadEvents(eventsFile)
+	if err != nil {
+		log.Fatalf("Ошибка: %v\n", err)
+	}
+	fmt.Printf("Прочитано %d событий\n", len(events)) 
 
 	index := internal.BuildIndex(events)
 

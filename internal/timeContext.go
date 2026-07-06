@@ -3,11 +3,12 @@ package internal
 import (
 	"fmt"
 	"log"
+	"sort"
 	"time"
 )
 
-func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent string) []Event {
-	var eventsInRange []Event
+func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent string) []*Event {
+	var eventsInRange []*Event
 	var beforeMainTime, afterMainTime time.Duration
 	var err error
 
@@ -33,7 +34,8 @@ func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent
 	endTime := mainTime.Add(afterMainTime)
 
 
-	for _, event := range events {
+	for i := range events {
+		event := &events[i]
 		eventTime, err := time.Parse(time.RFC3339, event.TimeStamp)
 		if (err != nil) {
 			fmt.Printf("Ошибка при парсинге времени события %s: %v", event.EventID, err)
@@ -45,6 +47,13 @@ func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent
 				eventsInRange = append(eventsInRange, event)
 			}
 	}
+
+	// сортировка по времени, от более ранних событий к более поздним
+	sort.Slice(eventsInRange, func(i, j int) bool {
+		time_i, _ := time.Parse(time.RFC3339, eventsInRange[i].TimeStamp)
+		time_j, _ := time.Parse(time.RFC3339, eventsInRange[j].TimeStamp)
+		return time_i.Before(time_j)
+	})
 
 	return eventsInRange
 }

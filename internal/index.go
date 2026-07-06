@@ -1,22 +1,23 @@
 package internal
 
 type Index struct {
-	EventIdIndex       map[string]Event
-	UserIdGroup        map[string][]Event
-	FileIdGroup        map[string][]Event
-	DestinationIdGroup map[string][]Event
+	EventIdIndex       map[string]*Event
+	UserIdGroup        map[string][]*Event
+	FileIdGroup        map[string][]*Event
+	DestinationIdGroup map[string][]*Event
 }
 
 func BuildIndex(events []Event) Index {
 
 	idx := Index{
-		EventIdIndex:       make(map[string]Event),
-		UserIdGroup:        make(map[string][]Event),
-		FileIdGroup:        make(map[string][]Event),
-		DestinationIdGroup: make(map[string][]Event),
+		EventIdIndex:       make(map[string]*Event),
+		UserIdGroup:        make(map[string][]*Event),
+		FileIdGroup:        make(map[string][]*Event),
+		DestinationIdGroup: make(map[string][]*Event),
 	}
 
-	for _, event := range events {
+	for i := range events {
+		event := &events[i]
 		// Индекс по event_id
 		_, isExist := idx.EventIdIndex[event.EventID] // проверка на дубликат
 		if isExist {
@@ -42,22 +43,22 @@ func BuildIndex(events []Event) Index {
 }
 
 // функция возвращает Event по event_id
-func (idx Index) GetEvent(eventId string) (Event, bool) {
+func (idx Index) GetEvent(eventId string) (*Event, bool) {
 	event, isExist := idx.EventIdIndex[eventId]
 	return event, isExist
 }
 
 // функция возвращает все Event пользователя с user_id
-func (idx Index) GetEventByUser(userId string) []Event {
+func (idx Index) GetEventByUser(userId string) []*Event {
 	return idx.UserIdGroup[userId]
 }
 
 // функция возвращает все Event пользователя с file_id
-func (idx Index) GetEventByFile(fileId string) []Event {
+func (idx Index) GetEventByFile(fileId string) []*Event {
 	return idx.FileIdGroup[fileId]
 }
 
 // функция возвращает все Event пользователя с destination_id
-func (idx Index) GetEventByDestination(userId string) []Event {
-	return idx.DestinationIdGroup[userId]
+func (idx Index) GetEventByDestination(destinationId string) []*Event {
+	return idx.DestinationIdGroup[destinationId]
 }
