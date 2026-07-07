@@ -12,11 +12,11 @@ func main() {
 
 	args := os.Args
 	if (len(args) < 5) {
-		fmt.Println("Использование: incident-card --events <file> --event-id <id>")
+		fmt.Println("Использование: incident-card --events <file> --event-id <id> --before <dur> --after <dur> --out <md-file>")
 		return
 	}
 
-	var eventsFile, eventId, beforeEvent, afterEvent string
+	var eventsFile, eventId, beforeEvent, afterEvent, outFile string
 
 	for i := 1; i < len(args); i += 2 {
 		switch args[i] {
@@ -27,7 +27,9 @@ func main() {
 		case "--before":
 			beforeEvent = args[i+1]
 		case "--after":
-			afterEvent =args[i+1]
+			afterEvent = args[i+1]
+		case "--out":
+			outFile = args[i+1]
 		}
 	}
 
@@ -50,25 +52,24 @@ func main() {
 		return 
 	}
 
-	userEvents := index.GetEventByUser(mainEvent.UserID)
-	fmt.Printf("Найдено %d событий пользователя\n", len(userEvents))
-	for _, event := range userEvents {
-		fmt.Printf("Событие %s, Action: %s\n", event.EventID, event.Action)
+	bool_true := true
+	true_ptr := &bool_true
+	bool_false := false
+	false_ptr := &bool_false
+	// Создаём запрос в соответствии с структурой Request, некоторые поля пока заполняем вручную
+	req := internal.Request{
+		IncidentID: "inc_1",
+		MainEventID: eventId,
+		WindowBefore: beforeEvent,      
+		WindowAfter:  afterEvent,
+		IncludeSameUser: true_ptr,
+		IncludeSameFile: false_ptr, 
+		IncludeSameDestination: true_ptr,
+		MaxEventsPerSection:  50,  
 	}
 
-	if (mainEvent.FileID != nil) {
-		countEvents := len(index.GetEventByFile(*mainEvent.FileID))
-		fmt.Printf("Найдено %d событий с файлом %s\n", countEvents, *mainEvent.FileID)
-	}
+	answer := internal.BuildAnswer(mainEvent, index, events, req)
 
-	
-	timeEvents, err := internal.GetEventsInTimeRange(events, mainEvent.TimeStamp, beforeEvent, afterEvent)
-	if (err != nil) {
-		log.Fatalf("Ошибка при получении временного контекста событий: %v", err)
-	}
-	fmt.Printf("Найдено %d событий, произошедших в данный период времени\n", len(timeEvents))
-	for _, event := range timeEvents {
-		fmt.Printf("Событие %s, Время: %s\n", event.EventID, event.TimeStamp)
-	}
+	markdownCard := internal.GenerateMarkdownCard(mainEvent, &answer, index)
 
 }

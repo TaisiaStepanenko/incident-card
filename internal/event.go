@@ -36,15 +36,16 @@ type MainEvent struct {
 }
 
 type Answer struct {
-	IncIDentID            string    `json:"incident_id,omitempty"`
-	MainEvent             MainEvent `json:"main_event"`
-	Summary               string    `json:"summary"`
-	ContextBefore         []string  `json:"context_before,omitempty"`
-	ContextAfter          []string  `json:"context_after,omitempty"`
-	SameUserEvents        *[]string `json:"same_user_events,omitempty"`
-	SameFileEvents        *[]string `json:"same_file_events,omitempty"`
-	SameDestinationEvents *[]string `json:"same_destination_events,omitempty"`
-	SuspiciousFactors     *[]string `json:"suspicious_factors,omitempty"`
+	IncidentID            string         `json:"incident_id,omitempty"`
+	MainEvent             MainEvent      `json:"main_event"`
+	Summary               string         `json:"summary"`
+	ContextBefore         []string       `json:"context_before,omitempty"`
+	ContextAfter          []string       `json:"context_after,omitempty"`
+	SameUserEvents        *[]string      `json:"same_user_events,omitempty"`
+	SameFileEvents        *[]string      `json:"same_file_events,omitempty"`
+	SameDestinationEvents *[]string      `json:"same_destination_events,omitempty"`
+	TimeLine              []TimelineItem `json:"timeline"`
+	SuspiciousFactors     *[]string      `json:"suspicious_factors,omitempty"`
 }
 
 type Condition struct {
@@ -60,3 +61,25 @@ type Rules struct {
 	Title     string    `json:"title"`
 	Condition Condition `json:"condition"`
 }
+
+type TimelineItem struct {
+	Timestamp   string  `json:"timestamp"`
+	EventID     string  `json:"event_id"`
+	Role        Role    `json:"role"`
+	UserID      string  `json:"user_id"`
+	Action      string  `json:"action"`
+	FileName    *string `json:"file_name,omitempty"`
+	Destination *string `json:"destination,omitempty"`
+	Severity    *string `json:"severity,omitempty"`
+}
+
+type Role string
+
+const (
+	RoleMain            Role = "main_event"
+	RoleBeforeContext   Role = "context_before"
+	RoleAfterContext    Role = "context_after"
+	RoleSameUser        Role = "same_user"
+	RoleSameFile        Role = "same_file"
+	RoleSameDestination Role = "same_destination"
+)
