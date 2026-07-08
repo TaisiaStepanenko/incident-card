@@ -18,27 +18,27 @@ func MakeLimitSlice(events []*Event, limit int) []*Event {
 func BuildAnswer(mainEvent *Event, index Index, events []Event, req Request) Answer {
 
 	// Сбор событий по временному контексту 
-	timeEvents, err := GetEventsInTimeRange(events, mainEvent.TimeStamp, req.WindowBefore, req.WindowBefore)
+	timeEvents, err := GetEventsInTimeRange(events, mainEvent.TimeStamp, req.WindowBefore, req.WindowAfter)
 	if err != nil {
 		log.Fatalf("Ошибка при получении временного контекста событий: %v", err)
 	}
 
 	// События пользователя главного события (если есть в запросе)
 	var userEvents []*Event
-	if (req.IncludeSameUser != nil) {
+	if (req.IncludeSameUser != nil && *req.IncludeSameUser) {
 		userEvents = index.GetEventByUser(mainEvent.UserID)
 	}
 
 	// События с файлом главного события (если есть в запросе)
 	var fileEvents []*Event
-	if (req.IncludeSameFile != nil) {
+	if (req.IncludeSameFile != nil && *req.IncludeSameFile) {
 		fileEvents = index.GetEventByFile(*mainEvent.FileID)
 	}
 
 	// События адресата главного события (если есть в запросе)
 	var destinationEvents []*Event
-	if (req.IncludeSameDestination != nil) {
-		destinationEvents = index.GetEventByFile(*mainEvent.DestinationID)
+	if (req.IncludeSameDestination != nil && *req.IncludeSameDestination) {
+		destinationEvents = index.GetEventByDestination(*mainEvent.DestinationID)
 	}
 
 	// Устанавливаем ограничение размера разделов (по умолчанию 50)
@@ -90,9 +90,9 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, req Request) Ans
 		Summary: summary,
 		ContextBefore: contextBeforeIds,
 		ContextAfter: contextAfterIds,
-		SameUserEvents: &userEventsIds,
-		SameFileEvents: &fileEventsIds,
-		SameDestinationEvents: &destinationEventsIds,
+		SameUserEvents: userEventsIds,
+		SameFileEvents: fileEventsIds,
+		SameDestinationEvents: destinationEventsIds,
 		TimeLine: timelineItems,
 	}
 
@@ -153,15 +153,15 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 	// собираем срез []TimelineItem
 	timelineItems := make([]TimelineItem, 0, len(allUniqueEventsMap))
 	for _, event := range allUniqueEventsMap {
-		var fileName, destination, severity *string
+		var fileName, destination, severity string
 		if (event.FileName != nil) {
-			fileName = event.FileName
+			fileName = *event.FileName
 		}
 		if (event.Destination != nil) {
-			destination = event.Destination
+			destination = *event.Destination
 		}
 		if (event.Severity != nil) {
-			severity = event.Severity
+			severity = *event.Severity
 		}
 
 		timelineItems = append(timelineItems, TimelineItem{
@@ -218,7 +218,7 @@ func WriteSummaryText(mainEvent *Event) string {
 		summary.WriteString("с файлом ")
 		summary.WriteString(fmt.Sprintf("*%s*", *mainEvent.FileName))
 	}
-	if (mainEvent.FileName != nil) {
+	if (mainEvent.Destination != nil) {
 		summary.WriteString("в адрес ")
 		summary.WriteString(fmt.Sprintf("*%s*", *mainEvent.Destination))
 	}
@@ -226,7 +226,7 @@ func WriteSummaryText(mainEvent *Event) string {
 	return summary.String()
 }
 
-func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index) string {
+func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEventsPerSection int) string {
 	var markdownnContent strings.Builder
 	markdownnContent.WriteString("# Карточка инцидента\n\n")
 	markdownnContent.WriteString(fmt.Sprintf("__ID инцидента:__ %s\n\n", answer.IncidentID))
@@ -234,5 +234,121 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index) string 
 	markdownnContent.WriteString("## Краткое резюме ##\n\n")
 	markdownnContent.WriteString(WriteSummaryText(mainEvent))
 
+	markdownnContent.WriteString("## Главное событие ##\n\n")
+	markdownnContent.WriteString(fmt.Sprintf("- __Event ID:__ %s\n", answer.MainEvent.EventID))
+	markdownnContent.WriteString(fmt.Sprintf("- __Action:__ %s\n", answer.MainEvent.Action))
+
+	markdownnContent.WriteString("## Контекст до события ##\n\n")
+	PrintSectionEvents(answer.ContextBefore, &markdownnContent)
+
+	markdownnContent.WriteString("## Контекст после события ##\n\n")
+	PrintSectionEvents(answer.ContextAfter, &markdownnContent)
+
+	markdownnContent.WriteString("## События того же пользователя ##\n\n")
+	PrintSectionEvents(answer.SameUserEvents, &markdownnContent)
+
+	markdownnContent.WriteString("## События с тем же файлом ##\n\n")
+	PrintSectionEvents(answer.SameFileEvents, &markdownnContent)
+
+	markdownnContent.WriteString("## События с тем же адресатом ##\n\n")
+	PrintSectionEvents(answer.SameDestinationEvents, &markdownnContent)
+
+	markdownnContent.WriteString("## Временная шкала ##\n\n")
+	if (len(answer.TimeLine) == 0) {
+		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
+	} else {
+		if (len(answer.TimeLine) > maxEventsPerSection) {
+			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение. В таблице приведены первые %d событий из %d", maxEventsPerSection, len(answer.TimeLine)))
+		}
+		markdownnContent.WriteString("|Время||Событие|Пользователь|Действие|Файл|Адресат|Важность|Роль|\n")
+		markdownnContent.WriteString("|---|---|---|---|---|---|---|---|---|\n")
+		for i, timelineItem := range answer.TimeLine {
+			if (i < maxEventsPerSection) {
+				WriteTableRaw(&timelineItem, &markdownnContent)
+			} else {
+				break
+			}
+		}
+		markdownnContent.WriteString("\n")
+	}
+
+	markdownnContent.WriteString("## Подозрительные факторы ##\n\n")
+	PrintSectionEvents(answer.SuspiciousFactors, &markdownnContent)
+
+	markdownnContent.WriteString("## Ссылки на исходные события ##\n\n")
+
 	return markdownnContent.String()
+}
+
+func PrintSectionEvents(ids []string, markdownnContent *strings.Builder) {
+	if (len(ids) == 0) {
+		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
+		return
+	} else {
+		for _, id := range ids {
+			markdownnContent.WriteString(fmt.Sprintf("- %s\n\n", id)) 
+		}
+		markdownnContent.WriteString("\n")
+	}
+}
+
+func WriteTableRaw(item *TimelineItem, markdownnContent *strings.Builder) {
+	for i := 0; i <= 8; i++ {
+		switch i {
+			case 0:
+				if(item.Timestamp != "") {
+					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Timestamp))
+				} else {
+					markdownnContent.WriteString("|")
+				}
+			case 1:
+				markdownnContent.WriteString("| |")
+
+			case 2:
+				if(item.EventID != "") {
+					markdownnContent.WriteString(fmt.Sprintf("|%s", item.EventID))
+				} else {
+					markdownnContent.WriteString("|")
+				}
+			case 3:
+				if(item.UserID != "") {
+					markdownnContent.WriteString(fmt.Sprintf("|%s", item.UserID))
+				} else {
+					markdownnContent.WriteString("|")
+				}
+			case 4:
+				if(item.Action != "") {
+					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Action))
+				} else {
+					markdownnContent.WriteString("|")
+				}
+			case 5:
+				if(item.FileName != "") {
+					markdownnContent.WriteString(fmt.Sprintf("|%s", item.FileName))
+				} else {
+					markdownnContent.WriteString("|")
+				}
+			case 6:
+				if(item.Destination != "") {
+					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Destination))
+				} else {
+					markdownnContent.WriteString("|")
+				}
+			case 7:
+				if(item.Severity != "") {
+					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Severity))
+				} else {
+					markdownnContent.WriteString("|")
+				}
+			case 8:
+				if(item.Role != "") {
+					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Role))
+				} else {
+					markdownnContent.WriteString("|")
+				}
+		}
+	}
+
+	markdownnContent.WriteString("|\n")
+
 }

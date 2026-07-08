@@ -41,11 +41,11 @@ type Answer struct {
 	Summary               string         `json:"summary"`
 	ContextBefore         []string       `json:"context_before,omitempty"`
 	ContextAfter          []string       `json:"context_after,omitempty"`
-	SameUserEvents        *[]string      `json:"same_user_events,omitempty"`
-	SameFileEvents        *[]string      `json:"same_file_events,omitempty"`
-	SameDestinationEvents *[]string      `json:"same_destination_events,omitempty"`
+	SameUserEvents        []string       `json:"same_user_events,omitempty"`
+	SameFileEvents        []string       `json:"same_file_events,omitempty"`
+	SameDestinationEvents []string       `json:"same_destination_events,omitempty"`
 	TimeLine              []TimelineItem `json:"timeline"`
-	SuspiciousFactors     *[]string      `json:"suspicious_factors,omitempty"`
+	SuspiciousFactors     []string       `json:"suspicious_factors,omitempty"`
 }
 
 type Condition struct {
@@ -63,14 +63,14 @@ type Rules struct {
 }
 
 type TimelineItem struct {
-	Timestamp   string  `json:"timestamp"`
-	EventID     string  `json:"event_id"`
-	Role        Role    `json:"role"`
-	UserID      string  `json:"user_id"`
-	Action      string  `json:"action"`
-	FileName    *string `json:"file_name,omitempty"`
-	Destination *string `json:"destination,omitempty"`
-	Severity    *string `json:"severity,omitempty"`
+	Timestamp   string `json:"timestamp"`
+	EventID     string `json:"event_id"`
+	Role        Role   `json:"role"`
+	UserID      string `json:"user_id"`
+	Action      string `json:"action"`
+	FileName    string `json:"file_name,omitempty"`
+	Destination string `json:"destination,omitempty"`
+	Severity    string `json:"severity,omitempty"`
 }
 
 type Role string

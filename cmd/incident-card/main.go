@@ -56,6 +56,7 @@ func main() {
 	true_ptr := &bool_true
 	bool_false := false
 	false_ptr := &bool_false
+	limit := 50
 	// Создаём запрос в соответствии с структурой Request, некоторые поля пока заполняем вручную
 	req := internal.Request{
 		IncidentID: "inc_1",
@@ -65,11 +66,11 @@ func main() {
 		IncludeSameUser: true_ptr,
 		IncludeSameFile: false_ptr, 
 		IncludeSameDestination: true_ptr,
-		MaxEventsPerSection:  50,  
+		MaxEventsPerSection:  limit,  
 	}
 
 	answer := internal.BuildAnswer(mainEvent, index, events, req)
 
-	markdownCard := internal.GenerateMarkdownCard(mainEvent, &answer, index)
+	
 
 }
