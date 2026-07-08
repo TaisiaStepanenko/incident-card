@@ -211,18 +211,18 @@ func FindIDs(events []*Event) []string {
 func WriteSummaryText(mainEvent *Event) string {
 	var summary strings.Builder
 	summary.WriteString("Пользователь ")
-	summary.WriteString(fmt.Sprintf("*%s*", mainEvent.UserID))
+	summary.WriteString(fmt.Sprintf("***%s***\n", mainEvent.UserID))
 	summary.WriteString("совершил действие ")
-	summary.WriteString(fmt.Sprintf("*%s*", mainEvent.Action))
+	summary.WriteString(fmt.Sprintf("***%s***\n", mainEvent.Action))
 	if (mainEvent.FileName != nil) {
 		summary.WriteString("с файлом ")
-		summary.WriteString(fmt.Sprintf("*%s*", *mainEvent.FileName))
+		summary.WriteString(fmt.Sprintf("***%s***\n", *mainEvent.FileName))
 	}
 	if (mainEvent.Destination != nil) {
 		summary.WriteString("в адрес ")
-		summary.WriteString(fmt.Sprintf("*%s*", *mainEvent.Destination))
+		summary.WriteString(fmt.Sprintf("***%s***\n", *mainEvent.Destination))
 	}
-	summary.WriteString("\n\n")
+	summary.WriteString(".\n\n")
 	return summary.String()
 }
 
@@ -260,8 +260,8 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEven
 		if (len(answer.TimeLine) > maxEventsPerSection) {
 			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение. В таблице приведены первые %d событий из %d", maxEventsPerSection, len(answer.TimeLine)))
 		}
-		markdownnContent.WriteString("|Время||Событие|Пользователь|Действие|Файл|Адресат|Важность|Роль|\n")
-		markdownnContent.WriteString("|---|---|---|---|---|---|---|---|---|\n")
+		markdownnContent.WriteString("| Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |\n")
+		markdownnContent.WriteString("|:---|:---|:---|:---|:---|:---|:---:|:---:|\n")
 		for i, timelineItem := range answer.TimeLine {
 			if (i < maxEventsPerSection) {
 				WriteTableRaw(&timelineItem, &markdownnContent)
@@ -282,69 +282,66 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEven
 
 func PrintSectionEvents(ids []string, markdownnContent *strings.Builder) {
 	if (len(ids) == 0) {
-		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
+		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено.\n\n")
 		return
 	} else {
 		for _, id := range ids {
-			markdownnContent.WriteString(fmt.Sprintf("- %s\n\n", id)) 
+			markdownnContent.WriteString(fmt.Sprintf("- %s\n", id)) 
 		}
 		markdownnContent.WriteString("\n")
 	}
 }
 
 func WriteTableRaw(item *TimelineItem, markdownnContent *strings.Builder) {
-	for i := 0; i <= 8; i++ {
+	for i := 0; i <= 7; i++ {
 		switch i {
 			case 0:
 				if(item.Timestamp != "") {
 					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Timestamp))
 				} else {
-					markdownnContent.WriteString("|")
+					markdownnContent.WriteString("|-")
 				}
 			case 1:
-				markdownnContent.WriteString("| |")
-
-			case 2:
 				if(item.EventID != "") {
 					markdownnContent.WriteString(fmt.Sprintf("|%s", item.EventID))
 				} else {
-					markdownnContent.WriteString("|")
+					markdownnContent.WriteString("|-")
 				}
-			case 3:
+			case 2:
 				if(item.UserID != "") {
 					markdownnContent.WriteString(fmt.Sprintf("|%s", item.UserID))
 				} else {
-					markdownnContent.WriteString("|")
+					markdownnContent.WriteString("|-")
 				}
-			case 4:
+			case 3:
 				if(item.Action != "") {
 					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Action))
 				} else {
-					markdownnContent.WriteString("|")
+					markdownnContent.WriteString("|-")
 				}
-			case 5:
+			case 4:
 				if(item.FileName != "") {
 					markdownnContent.WriteString(fmt.Sprintf("|%s", item.FileName))
 				} else {
-					markdownnContent.WriteString("|")
+					markdownnContent.WriteString("|-")
 				}
-			case 6:
+			case 5:
 				if(item.Destination != "") {
 					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Destination))
 				} else {
-					markdownnContent.WriteString("|")
+					markdownnContent.WriteString("|-")
 				}
-			case 7:
+			case 6:
 				if(item.Severity != "") {
 					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Severity))
 				} else {
-					markdownnContent.WriteString("|")
+					markdownnContent.WriteString("|-")
 				}
-			case 8:
+			case 7:
 				if(item.Role != "") {
 					markdownnContent.WriteString(fmt.Sprintf("|%s", item.Role))
 				} else {
-					markdownnContent.WriteString("|")
+					markdownnContent.WriteString("|-")
 				}
 		}
 	}
