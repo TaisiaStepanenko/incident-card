@@ -51,14 +51,14 @@ func main() {
 		}
 	}
 	
-	// Задаём значения из JSON (пока они приоритетнее, данный момент уточняется)
-	if (req.MainEventID != "") {
+	// Задаём значения из JSON, но только в том случае, если данные ещё не были заполнены CLI (приоритет) 
+	if (req.MainEventID != "" && eventId == "") {
 		eventId = req.MainEventID
 	}
-	if (req.WindowBefore != "") {
+	if (req.WindowBefore != "" && beforeEvent == "") {
 		beforeEvent = req.WindowBefore
 		}
-	if (req.WindowAfter != "") {
+	if (req.WindowAfter != "" && afterEvent == "") {
 		afterEvent = req.WindowAfter
 	}
 
@@ -90,7 +90,7 @@ func main() {
 		return
 	}
 
-	events, err := internal.ReadEvents(eventsFile)
+	events, eventsLink, err := internal.ReadEvents(eventsFile)
 	if err != nil {
 		log.Fatalf("Ошибка: %v\n", err)
 	}
@@ -117,7 +117,7 @@ func main() {
 		MaxEventsPerSection:  limit,  
 	}
 
-	answer := internal.BuildAnswer(mainEvent, index, events, req)
+	answer := internal.BuildAnswer(mainEvent, index, events, eventsLink, req)
 
 	if (outFile != "") {
 		markdownCard := internal.GenerateMarkdownCard(mainEvent, &answer, index, limit)
@@ -140,7 +140,7 @@ func main() {
 	if (jsonFile != "") {
 		jsonFileOpen, err := os.OpenFile(jsonFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 		if (err != nil) {
-			log.Fatalf("Не удалось открыть файл %s: %v", outFile, err)
+			log.Fatalf("Не удалось открыть файл %s: %v", jsonFile, err)
 		}
 		defer jsonFileOpen.Close()
 

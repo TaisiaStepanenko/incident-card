@@ -15,7 +15,7 @@ func MakeLimitSlice(events []*Event, limit int) []*Event {
 	return events
 }
 
-func BuildAnswer(mainEvent *Event, index Index, events []Event, req Request) Answer {
+func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []LinkInFile, req Request) Answer {
 
 	// Сбор событий по временному контексту 
 	timeEvents, err := GetEventsInTimeRange(events, mainEvent.TimeStamp, req.WindowBefore, req.WindowAfter)
@@ -31,13 +31,13 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, req Request) Ans
 
 	// События с файлом главного события (если есть в запросе)
 	var fileEvents []*Event
-	if (req.IncludeSameFile != nil && *req.IncludeSameFile) {
+	if (req.IncludeSameFile != nil && *req.IncludeSameFile && mainEvent.FileID != nil) {
 		fileEvents = index.GetEventByFile(*mainEvent.FileID)
 	}
 
 	// События адресата главного события (если есть в запросе)
 	var destinationEvents []*Event
-	if (req.IncludeSameDestination != nil && *req.IncludeSameDestination) {
+	if (req.IncludeSameDestination != nil && *req.IncludeSameDestination && mainEvent.DestinationID != nil) {
 		destinationEvents = index.GetEventByDestination(*mainEvent.DestinationID)
 	}
 
@@ -65,11 +65,13 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, req Request) Ans
 	destinationEvents = MakeLimitSlice(destinationEvents, limit)
 
 
-	timelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents)
+	timelineItems, linksTotimelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents, eventsLink)
 	
 	if (len(timelineItems) > limit) {
 		timelineItems = timelineItems[:limit]
+		linksTotimelineItems = linksTotimelineItems[:limit]
 	}
+
 
 	summary := BuildSummary(mainEvent)
 
@@ -94,11 +96,12 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, req Request) Ans
 		SameFileEvents: fileEventsIds,
 		SameDestinationEvents: destinationEventsIds,
 		TimeLine: timelineItems,
+		LinksToTheOriginalEvents: linksTotimelineItems,
 	}
 
 }
 
-func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents []*Event) []TimelineItem {
+func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents []*Event, eventsLink []LinkInFile) ([]TimelineItem, []LinkInFile) {
 	
 	roleMap := make(map[string]Role) // соответствие события и его роли
 
@@ -152,6 +155,7 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 
 	// собираем срез []TimelineItem
 	timelineItems := make([]TimelineItem, 0, len(allUniqueEventsMap))
+	linksTotimelineItems := make([]LinkInFile, 0, len(allUniqueEventsMap))
 	for _, event := range allUniqueEventsMap {
 		var fileName, destination, severity string
 		if (event.FileName != nil) {
@@ -165,7 +169,7 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 		}
 
 		timelineItems = append(timelineItems, TimelineItem{
-			Timestamp: event.TimeStamp,
+			Timestamp:   event.TimeStamp,
 			EventID:     event.EventID,
 			Role:        roleMap[event.EventID],
 			UserID:      event.UserID,
@@ -174,6 +178,16 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 			Destination: destination,
 			Severity:    severity,	
 		})
+
+		for _, link := range eventsLink {
+			if (link.EventID == event.EventID) {
+				linksTotimelineItems = append(linksTotimelineItems, LinkInFile{
+					EventID: event.EventID,
+					FileName: link.FileName,
+					FileLine: link.FileLine,
+				})
+			}
+		}
 	}
 
 	// Сортировка по времени, при равенстве времени сортируем по event_id
@@ -186,7 +200,12 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 		return time_i.Before(time_j)
 	})
 
-	return timelineItems
+	// Сортировка ссылок по event_id
+	sort.Slice(linksTotimelineItems, func(i, j int) bool {
+		return linksTotimelineItems[i].EventID < linksTotimelineItems[j].EventID
+	})
+
+	return timelineItems, linksTotimelineItems
 
 }
 
@@ -276,6 +295,13 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEven
 	PrintSectionEvents(answer.SuspiciousFactors, &markdownnContent)
 
 	markdownnContent.WriteString("## Ссылки на исходные события ##\n\n")
+	if (len(answer.LinksToTheOriginalEvents) == 0) {
+		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
+	} else {
+		for _, link := range answer.LinksToTheOriginalEvents {
+			markdownnContent.WriteString(fmt.Sprintf("- ___%s___: файл __%s__ строка __%d__\n", link.EventID, link.FileName, link.FileLine))
+		}
+	}
 
 	return markdownnContent.String()
 }

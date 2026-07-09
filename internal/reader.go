@@ -8,16 +8,17 @@ import (
 )
 
 // Чтение событий из JSONL-файла
-func ReadEvents(filePath string) ([]Event, error) {
+func ReadEvents(filePath string) ([]Event, []LinkInFile, error) {
 	file, err := os.Open(filePath)
 	if (err != nil) {
-		return nil, fmt.Errorf("Не удалось открыть файл %s: %w", filePath, err)
+		return nil, nil, fmt.Errorf("Не удалось открыть файл %s: %w", filePath, err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	
 	var events []Event
+	var eventsLinkInFile []LinkInFile
 	lineNumber := 0
 	const maxLineLength = 10 * 1024 * 1024
 
@@ -45,14 +46,21 @@ func ReadEvents(filePath string) ([]Event, error) {
 			continue
 		}
 
+		// Добавляем новую ссылку на событие
+		eventsLinkInFile = append(eventsLinkInFile, LinkInFile{
+			EventID: newEvent.EventID,
+			FileName: filePath,
+			FileLine: lineNumber,
+		})
+
 		events = append(events, newEvent) // добавляем новое событие в список событий
 	}
 
 	err = scanner.Err()
 	if (err != nil) {
-		return nil, fmt.Errorf("Ошибка при чтении файла %s: %w", filePath, err)  // ошибка при сканировнии
+		return nil, nil, fmt.Errorf("Ошибка при чтении файла %s: %w", filePath, err)  // ошибка при сканировнии
 	}
 
-	return events, err
+	return events, eventsLinkInFile, err
 
 }

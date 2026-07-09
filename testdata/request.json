@@ -1,6 +1,6 @@
 {
   "incident_id": "inc_001",
-  "main_event_id": "evt_12345",
+  "main_event_id": "evt_12346",
   "window_before": "30m",
   "window_after": "10m",
   "include_same_user": true,

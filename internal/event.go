@@ -36,16 +36,17 @@ type MainEvent struct {
 }
 
 type Answer struct {
-	IncidentID            string         `json:"incident_id,omitempty"`
-	MainEvent             MainEvent      `json:"main_event"`
-	Summary               string         `json:"summary"`
-	ContextBefore         []string       `json:"context_before,omitempty"`
-	ContextAfter          []string       `json:"context_after,omitempty"`
-	SameUserEvents        []string       `json:"same_user_events,omitempty"`
-	SameFileEvents        []string       `json:"same_file_events,omitempty"`
-	SameDestinationEvents []string       `json:"same_destination_events,omitempty"`
-	TimeLine              []TimelineItem `json:"timeline"`
-	SuspiciousFactors     []string       `json:"suspicious_factors,omitempty"`
+	IncidentID               string         `json:"incident_id,omitempty"`
+	MainEvent                MainEvent      `json:"main_event"`
+	Summary                  string         `json:"summary"`
+	ContextBefore            []string       `json:"context_before,omitempty"`
+	ContextAfter             []string       `json:"context_after,omitempty"`
+	SameUserEvents           []string       `json:"same_user_events,omitempty"`
+	SameFileEvents           []string       `json:"same_file_events,omitempty"`
+	SameDestinationEvents    []string       `json:"same_destination_events,omitempty"`
+	TimeLine                 []TimelineItem `json:"timeline"`
+	SuspiciousFactors        []string       `json:"suspicious_factors,omitempty"`
+	LinksToTheOriginalEvents []LinkInFile
 }
 
 type Condition struct {
@@ -83,3 +84,9 @@ const (
 	RoleSameFile        Role = "same_file"
 	RoleSameDestination Role = "same_destination"
 )
+
+type LinkInFile struct {
+	EventID  string
+	FileName string
+	FileLine int
+}

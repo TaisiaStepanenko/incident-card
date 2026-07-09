@@ -7,20 +7,19 @@ __ID инцидента:__ inc_001
 Пользователь ***user_017***
 совершил действие ***email_send***
 с файлом ***client_base.xlsx***
-в адрес ***external_email_001***
+в адрес ***external_email_002***
 .
 
 ## Главное событие ##
 
-- __Event ID:__ evt_12345
+- __Event ID:__ evt_12346
 - __Action:__ email_send
 ## Контекст до события ##
 
-Подходящих для данного раздела событий не найдено.
+- evt_12345
 
 ## Контекст после события ##
 
-- evt_12346
 - evt_12347
 
 ## События того же пользователя ##
@@ -42,8 +41,8 @@ __ID инцидента:__ inc_001
 
 | Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |
 |:---|:---|:---|:---|:---|:---|:---:|:---:|
-|2026-06-16T10:15:00Z|evt_12345|user_017|email_send|client_base.xlsx|external_email_001|high|main_event|
-|2026-06-16T10:16:00Z|evt_12346|user_017|email_send|client_base.xlsx|external_email_002|medium|context_after|
+|2026-06-16T10:15:00Z|evt_12345|user_017|email_send|client_base.xlsx|external_email_001|high|context_before|
+|2026-06-16T10:16:00Z|evt_12346|user_017|email_send|client_base.xlsx|external_email_002|medium|main_event|
 |2026-06-16T10:20:00Z|evt_12347|user_018|open_file|report.pdf|-|low|context_after|
 |2026-06-16T11:15:00Z|evt_12348|user_017|delete_file|client_base.xlsx|-|high|same_user|
 
@@ -53,3 +52,7 @@ __ID инцидента:__ inc_001
 
 ## Ссылки на исходные события ##
 
+- ___evt_12345___: файл __testdata/eventsList.jsonl__ строка __1__
+- ___evt_12346___: файл __testdata/eventsList.jsonl__ строка __2__
+- ___evt_12347___: файл __testdata/eventsList.jsonl__ строка __3__
+- ___evt_12348___: файл __testdata/eventsList.jsonl__ строка __4__
