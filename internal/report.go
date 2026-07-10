@@ -15,7 +15,7 @@ func MakeLimitSlice(events []*Event, limit int) []*Event {
 	return events
 }
 
-func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []LinkInFile, req Request) Answer {
+func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []LinkInFile, req Request, rules []Rule) Answer {
 
 	// Сбор событий по временному контексту 
 	timeEvents, err := GetEventsInTimeRange(events, mainEvent.TimeStamp, req.WindowBefore, req.WindowAfter)
@@ -81,7 +81,7 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 	fileEventsIds := FindIDs(fileEvents)
 	destinationEventsIds := FindIDs(destinationEvents)
 
-	
+	suspicious := CheckRules(mainEvent, rules)
 
 	return Answer{
 		IncidentID: req.IncidentID,
@@ -96,6 +96,7 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 		SameFileEvents: fileEventsIds,
 		SameDestinationEvents: destinationEventsIds,
 		TimeLine: timelineItems,
+		SuspiciousFactors: suspicious,
 		LinksToTheOriginalEvents: linksTotimelineItems,
 	}
 
@@ -230,16 +231,16 @@ func FindIDs(events []*Event) []string {
 func WriteSummaryText(mainEvent *Event) string {
 	var summary strings.Builder
 	summary.WriteString("Пользователь ")
-	summary.WriteString(fmt.Sprintf("***%s***\n", mainEvent.UserID))
-	summary.WriteString("совершил действие ")
-	summary.WriteString(fmt.Sprintf("***%s***\n", mainEvent.Action))
+	summary.WriteString(fmt.Sprintf("***%s***", mainEvent.UserID))
+	summary.WriteString(" совершил действие ")
+	summary.WriteString(fmt.Sprintf("***%s***", mainEvent.Action))
 	if (mainEvent.FileName != nil) {
-		summary.WriteString("с файлом ")
-		summary.WriteString(fmt.Sprintf("***%s***\n", *mainEvent.FileName))
+		summary.WriteString(" с файлом ")
+		summary.WriteString(fmt.Sprintf("***%s***", *mainEvent.FileName))
 	}
 	if (mainEvent.Destination != nil) {
-		summary.WriteString("в адрес ")
-		summary.WriteString(fmt.Sprintf("***%s***\n", *mainEvent.Destination))
+		summary.WriteString(" в адрес ")
+		summary.WriteString(fmt.Sprintf("***%s***", *mainEvent.Destination))
 	}
 	summary.WriteString(".\n\n")
 	return summary.String()
@@ -277,7 +278,7 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEven
 		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
 	} else {
 		if (len(answer.TimeLine) > maxEventsPerSection) {
-			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение. В таблице приведены первые %d событий из %d", maxEventsPerSection, len(answer.TimeLine)))
+			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение. В таблице приведены первые %d событий из %d.\n\n", maxEventsPerSection, len(answer.TimeLine)))
 		}
 		markdownnContent.WriteString("| Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |\n")
 		markdownnContent.WriteString("|:---|:---|:---|:---|:---|:---|:---:|:---:|\n")

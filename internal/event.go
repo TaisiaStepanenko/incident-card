@@ -50,17 +50,17 @@ type Answer struct {
 }
 
 type Condition struct {
-	Field    string   `json:"field"`
-	Equals   *string  `json:"equals,omitempty"`
-	In       []string `json:"in,omitempty"`
-	Contains *string  `json:"contains,omitempty"`
-	Exists   *bool    `json:"exists,omitempty"`
+	Field    string   `yaml:"field"`
+	Equals   *string  `yaml:"equals,omitempty"`
+	In       []string `yaml:"in,omitempty"`
+	Contains *string  `yaml:"contains,omitempty"`
+	Exists   *bool    `yaml:"exists,omitempty"`
 }
 
-type Rules struct {
-	FactorID  string    `json:"factor_id"`
-	Title     string    `json:"title"`
-	Condition Condition `json:"condition"`
+type Rule struct {
+	FactorID  string    `yaml:"factor_id"`
+	Title     string    `yaml:"title"`
+	Condition Condition `yaml:"condition"`
 }
 
 type TimelineItem struct {

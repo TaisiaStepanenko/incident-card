@@ -7,17 +7,21 @@ import (
 	"os"
 
 	"github.com/TaisiaStepanenko/incident-card/internal"
+	"github.com/stretchr/testify/assert/yaml"
 )
+
+// Использовала gopkg.in/yaml.v3 для парсинга YAML-файлов с правилами подозрительных факторов.
+// Стандартная библиотека Go не содержит пакета для работы с YAML, поэтому было принято решение использовать внешнюю библиотеку.
 
 func main() {  
 
 	args := os.Args
 	if (len(args) < 3) {
-		fmt.Println("Использование: incident-card --events <file> --event-id <id> --before <dur> --after <dur> --request <json-file> --out <md-file> --json <json-file>")
+		fmt.Println("Использование: incident-card --events <file> --event-id <id> --before <dur> --after <dur> --request <json-file> --out <md-file> --json <json-file> --factors <yaml-файл>")
 		return
 	}
 
-	var eventsFile, eventId, beforeEvent, afterEvent, outFile, requestFile, jsonFile string
+	var eventsFile, eventId, beforeEvent, afterEvent, outFile, requestFile, jsonFile, factorsFile string
 
 	for i := 1; i < len(args); i += 2 {
 		switch args[i] {
@@ -35,6 +39,8 @@ func main() {
 			requestFile = args[i+1]
 		case "--json":
 			jsonFile = args[i+1]
+		case "--factors":
+			factorsFile = args[i+1]
 		}
 	}
 
@@ -117,7 +123,25 @@ func main() {
 		MaxEventsPerSection:  limit,  
 	}
 
-	answer := internal.BuildAnswer(mainEvent, index, events, eventsLink, req)
+	var rules []internal.Rule
+	if (factorsFile != "") {
+		factData, err := os.ReadFile(factorsFile)
+		if err != nil {
+			log.Fatalf("Ошибка при чтении файла, содержащего правила %s: %v", factorsFile, err)
+		}
+
+		var factArr struct {
+			Factors []internal.Rule `yaml:"factors"`
+		}
+
+		err = yaml.Unmarshal(factData, &factArr)
+		if err != nil {
+			log.Fatalf("Ошибка парсинга YAML: %v", err)
+		}
+		rules = factArr.Factors
+	}
+
+	answer := internal.BuildAnswer(mainEvent, index, events, eventsLink, req, rules)
 
 	if (outFile != "") {
 		markdownCard := internal.GenerateMarkdownCard(mainEvent, &answer, index, limit)

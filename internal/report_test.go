@@ -76,7 +76,7 @@ func TestBuildAnswer(t *testing.T) {
 	mainEvent, isExist := index.GetEvent(req.MainEventID)
 	require.True(t, isExist)
 
-	answer := BuildAnswer(mainEvent, index, events, links, req)
+	answer := BuildAnswer(mainEvent, index, events, links, req, []Rule{})
 
 	// Проверяем успешно ли записаны данные при вызове BuildAnswer
 	assert.Equal(t, "inc_001", answer.IncidentID)
@@ -121,9 +121,23 @@ func TestBuildAnswer(t *testing.T) {
 		assert.Equal(t, expectedItemsIds[i], link.EventID)
 		assert.Equal(t, "eventsList.jsonl", link.FileName)
 	}
+
+	// Устанавливаем лимит меньше количесва записей
+	req.MaxEventsPerSection = 4
+	answer = BuildAnswer(mainEvent, index, events, links, req, []Rule{})
+	
+	assert.Len(t, answer.TimeLine, 4)
+	assert.Len(t, answer.LinksToTheOriginalEvents, 4)
+
+	// Устанавливаем лимит 0 (должен автоматически установить 50 и вывести все 6 строк)
+	req.MaxEventsPerSection = 0
+	answer = BuildAnswer(mainEvent, index, events, links, req, []Rule{})
+	
+	assert.Len(t, answer.TimeLine, 6)
+	assert.Len(t, answer.LinksToTheOriginalEvents, 6)
 }
 
-func TestBuildTimeLineRoles(t *testing.T) {
+func TestBuildTimeLine(t *testing.T) {
 
 	mainEvent := &Event{EventID: "evt_12345", TimeStamp: "2026-06-16T10:15:00Z", UserID: "user_001", Action: "send"}
 	contextBefore := []*Event{{EventID: "evt_12346", TimeStamp: "2026-06-16T10:10:00Z", UserID: "user_001", Action: "open"}}
@@ -160,6 +174,29 @@ func TestBuildTimeLineRoles(t *testing.T) {
 	timelineItems, _ = BuildTimeline(mainEvent, contextBefore,contextAfter, userEvents, fileEvents, destinationEvents, links)
 
 	assert.Equal(t, RoleSameFile, timelineItems[1].Role)
+
+	// Только с главным событием
+	links = []LinkInFile{}
+	timelineItems, linkstimelineItems := BuildTimeline(mainEvent, nil, nil, nil, nil, nil, links)
+	assert.Len(t, timelineItems, 1)
+	assert.Len(t,linkstimelineItems, 0)
+
+	// Пустые поля
+	eventWithoutFields := &Event{
+		EventID: "evt_12340",
+		TimeStamp: "2026-06-16T10:14:00Z",
+		UserID: "user_001",
+		Action: "open",
+	}
+
+	timelineItems, _ = BuildTimeline(mainEvent, []*Event{eventWithoutFields}, nil, nil, nil, nil, []LinkInFile{})
+	assert.Len(t, timelineItems, 2)
+
+	// проверяем, что поля пустые 
+	assert.Equal(t, "", timelineItems[0].FileName)
+	assert.Equal(t, "", timelineItems[0].Destination)
+	assert.Equal(t, "", timelineItems[0].Severity)
+
 }
 
 // Вспомогательная функция BuildSummary
@@ -198,4 +235,134 @@ func TestFindIDs(t *testing.T) {
 	// При отсутствии событий
 	ids = FindIDs([]*Event{})
 	assert.Empty(t, ids)
+}
+
+
+// Вспомогательная функция WriteSummaryText
+func TestWriteSummaryText(t *testing.T) {
+	fileName := "file.txt"
+	destination := "dst_001"
+	
+	// Полные данные
+	event := &Event{
+		UserID: "user_001",
+		FileName: &fileName,
+		Action: "send",
+		Destination: &destination,
+	}
+	
+	summary := WriteSummaryText(event)
+
+	assert.Equal(t, "Пользователь ***user_001*** совершил действие ***send*** с файлом ***file.txt*** в адрес ***dst_001***.\n\n", summary)
+
+	// В event есть только user_id и action
+	event = &Event{
+		UserID: "user_001",
+		Action: "send",
+	}
+	
+	summary = WriteSummaryText(event)
+
+	assert.Equal(t, "Пользователь ***user_001*** совершил действие ***send***.\n\n", summary)
+
+	// В event есть только user_id, action и file_name
+	event = &Event{
+		UserID: "user_001",
+		FileName: &fileName,
+		Action: "send",
+	}
+	
+	summary = WriteSummaryText(event)
+
+	assert.Equal(t, "Пользователь ***user_001*** совершил действие ***send*** с файлом ***file.txt***.\n\n", summary)
+
+	// В event есть только user_id, action и destination
+	event = &Event{
+		UserID: "user_001",
+		Action: "send",
+		Destination: &destination,
+	}
+	
+	summary = WriteSummaryText(event)
+
+	assert.Equal(t, "Пользователь ***user_001*** совершил действие ***send*** в адрес ***dst_001***.\n\n", summary)
+}
+
+func TestGenerateMarkdownCard(t *testing.T) {
+	fileName := "file.txt"
+	destination := "dst_001"
+	mainEvent := &Event{EventID: "evt_12345", TimeStamp: "2026-06-16T10:15:00Z", UserID: "user_001", Action: "send", FileName: &fileName, Destination: &destination}
+
+	answer := &Answer{
+		IncidentID: "inc_001",
+	    MainEvent:  MainEvent{
+			EventID: "evt_12345",
+			Action: "send",
+		},
+	    Summary:  "user_001 file.txt",  
+	    ContextBefore: []string{"evt_12346"},
+	    ContextAfter:   []string{"evt_12347"},
+	    SameUserEvents:     []string{"evt_12346", "evt_12347"},
+	    SameFileEvents:     []string{"evt_12346"},
+	    SameDestinationEvents:   []string{"evt_12348"},
+	    TimeLine: []TimelineItem{
+			{Timestamp: "2026-06-16T10:10:00Z", EventID: "evt_12346", Role: RoleBeforeContext, UserID: "user_001", Action: "open", FileName: "file.txt", Destination: "", Severity: "low"},
+			{Timestamp: "2026-06-16T10:15:00Z", EventID: "evt_12345", Role: RoleMain, UserID: "user_001", Action: "send", FileName: "file.txt", Destination: "dst_001", Severity: "high"},
+			{Timestamp: "2026-06-16T10:20:00Z", EventID: "evt_12347", Role: RoleAfterContext, UserID: "user_001", Action: "delete", FileName: "file.txt", Destination: "", Severity: "medium"},
+			{Timestamp: "2026-06-16T10:14:00Z", EventID: "evt_12348", Role: RoleSameDestination, UserID: "user_002", Action: "send", FileName: "file.txt", Destination: "dst_002", Severity: "medium"},
+		},
+	    LinksToTheOriginalEvents: []LinkInFile{
+			{EventID: "evt_12345", FileName: "eventsList.jsonl", FileLine: 1},
+			{EventID: "evt_12346", FileName: "eventsList.jsonl", FileLine: 2},
+			{EventID: "evt_12347", FileName: "eventsList.jsonl", FileLine: 3},
+			{EventID: "evt_12348", FileName: "eventsList.jsonl", FileLine: 4},
+		},
+	    SuspiciousFactors: []string{"external_destination", "client_data"},
+	}
+
+	markdownCard := GenerateMarkdownCard(mainEvent, answer, Index{}, 2)
+
+	assert.Contains(t, markdownCard, "# Карточка инцидента\n\n")
+	assert.Contains(t, markdownCard, "__ID инцидента:__ inc_001\n\n")
+	assert.Contains(t, markdownCard, "Пользователь ***user_001*** совершил действие ***send*** с файлом ***file.txt*** в адрес ***dst_001***.\n\n")
+	assert.Contains(t, markdownCard, "## Главное событие ##\n\n")
+	assert.Contains(t, markdownCard, "- __Event ID:__ evt_12345\n")
+	assert.Contains(t, markdownCard, "- __Action:__ send\n")
+	assert.Contains(t, markdownCard, "## Контекст до события ##\n\n- evt_12346\n")
+	assert.Contains(t, markdownCard, "## Контекст после события ##\n\n- evt_12347\n")
+	assert.Contains(t, markdownCard, "## События того же пользователя ##\n\n- evt_12346\n- evt_12347\n")
+	assert.Contains(t, markdownCard, "## События с тем же файлом ##\n\n- evt_12346\n")
+	assert.Contains(t, markdownCard, "## События с тем же адресатом ##\n\n- evt_12348\n")
+	assert.Contains(t, markdownCard, "## Временная шкала ##\n\n")
+	assert.Contains(t, markdownCard, "Количество записей превысило максимально возможное значение. В таблице приведены первые 2 событий из 4.\n\n")
+	assert.Contains(t, markdownCard, "| Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |\n")
+	assert.Contains(t, markdownCard, "evt_12346")
+	assert.Contains(t, markdownCard, "evt_12345")
+	assert.Contains(t, markdownCard, "evt_12347")
+	assert.Contains(t, markdownCard, "evt_12348")
+	assert.Contains(t, markdownCard, "## Подозрительные факторы ##\n\n- external_destination\n- client_data\n")
+	assert.Contains(t, markdownCard, "## Ссылки на исходные события ##\n\n- ___evt_12345___: файл __eventsList.jsonl__ строка __1__\n- ___evt_12346___: файл __eventsList.jsonl__ строка __2__\n- ___evt_12347___: файл __eventsList.jsonl__ строка __3__\n- ___evt_12348___: файл __eventsList.jsonl__ строка __4__\n")
+
+	// Пустые разделы и timeline
+	answer = &Answer{
+		IncidentID: "inc_001",
+	    MainEvent:  MainEvent{
+			EventID: "evt_12345",
+			Action: "send",
+		},
+	    Summary:  "user_001",  
+	    ContextBefore: []string{},
+	    ContextAfter:   []string{},
+	    SameUserEvents:     []string{},
+	    SameFileEvents:     []string{},
+	    SameDestinationEvents:   []string{},
+	    TimeLine: []TimelineItem{},
+	    LinksToTheOriginalEvents: []LinkInFile{},
+	    SuspiciousFactors: []string{},
+	}
+
+	markdownCard = GenerateMarkdownCard(mainEvent, answer, Index{}, 50)
+
+	assert.Contains(t, markdownCard, "Подходящих для данного раздела событий не найдено.\n\n")
+
 }

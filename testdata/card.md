@@ -1,25 +1,22 @@
 # Карточка инцидента
 
-__ID инцидента:__ inc_001
+__ID инцидента:__ 
 
 ## Краткое резюме ##
 
-Пользователь ***user_017***
-совершил действие ***email_send***
-с файлом ***client_base.xlsx***
-в адрес ***external_email_002***
-.
+Пользователь ***user_017*** совершил действие ***email_send*** с файлом ***client_base.xlsx*** в адрес ***external_email_001***.
 
 ## Главное событие ##
 
-- __Event ID:__ evt_12346
+- __Event ID:__ evt_12345
 - __Action:__ email_send
 ## Контекст до события ##
 
-- evt_12345
+Подходящих для данного раздела событий не найдено.
 
 ## Контекст после события ##
 
+- evt_12346
 - evt_12347
 
 ## События того же пользователя ##
@@ -34,21 +31,21 @@ __ID инцидента:__ inc_001
 
 ## События с тем же адресатом ##
 
-- evt_12345
-- evt_12346
+Подходящих для данного раздела событий не найдено.
 
 ## Временная шкала ##
 
 | Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |
 |:---|:---|:---|:---|:---|:---|:---:|:---:|
-|2026-06-16T10:15:00Z|evt_12345|user_017|email_send|client_base.xlsx|external_email_001|high|context_before|
-|2026-06-16T10:16:00Z|evt_12346|user_017|email_send|client_base.xlsx|external_email_002|medium|main_event|
+|2026-06-16T10:15:00Z|evt_12345|user_017|email_send|client_base.xlsx|external_email_001|high|main_event|
+|2026-06-16T10:16:00Z|evt_12346|user_017|email_send|client_base.xlsx|external_email_002|medium|context_after|
 |2026-06-16T10:20:00Z|evt_12347|user_018|open_file|report.pdf|-|low|context_after|
 |2026-06-16T11:15:00Z|evt_12348|user_017|delete_file|client_base.xlsx|-|high|same_user|
 
 ## Подозрительные факторы ##
 
-Подходящих для данного раздела событий не найдено.
+- Внешний адресат
+- Клиентские данные
 
 ## Ссылки на исходные события ##
 
