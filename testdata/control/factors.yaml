@@ -1,0 +1,30 @@
+factors:
+  - factor_id: external_destination
+    title: Внешний адресат
+    condition:
+      field: destination_type
+      equals: external
+
+  - factor_id: client_data
+    title: Клиентские данные
+    condition:
+      field: content_classes
+      contains: client_data
+
+  - factor_id: personal_data
+    title: Персональные данные
+    condition:
+      field: content_classes
+      contains: personal_data
+
+  - factor_id: finance_data
+    title: Финансовые данные
+    condition:
+      field: content_classes
+      contains: finance
+  
+  - factor_id: large_file
+    title: Большой файл
+    condition:
+      field: size_bytes
+      gt: 1048576

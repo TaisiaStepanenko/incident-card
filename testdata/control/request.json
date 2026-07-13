@@ -1,10 +1,10 @@
 {
   "incident_id": "inc_001",
-  "main_event_id": "evt_12346",
+  "main_event_id": "evt_12345",
   "window_before": "30m",
   "window_after": "10m",
   "include_same_user": true,
-  "include_same_file": false,
+  "include_same_file": true,
   "include_same_destination": true,
   "max_events_per_section": 50
 }

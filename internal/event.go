@@ -55,6 +55,12 @@ type Condition struct {
 	In       []string `yaml:"in,omitempty"`
 	Contains *string  `yaml:"contains,omitempty"`
 	Exists   *bool    `yaml:"exists,omitempty"`
+
+	// числовые условия для size_bytes
+	Gt  *int64 `yaml:"gt,omitempty"`  // больше чем
+	Gte *int64 `yaml:"gte,omitempty"` // больше или равно
+	Lt  *int64 `yaml:"lt,omitempty"`  // меньше чем
+	Lte *int64 `yaml:"ltt,omitempty"` // меньше или равно
 }
 
 type Rule struct {

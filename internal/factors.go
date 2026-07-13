@@ -1,6 +1,10 @@
 package internal
 
-import "strings"
+import (
+	"log"
+	"strconv"
+	"strings"
+)
 
 func CheckRules(event *Event, rules []Rule) []string {
 	var suspicious []string
@@ -112,6 +116,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
+			return false
 		}
 		if cond.Equals != nil && *event.Department == *cond.Equals {
 			return true
@@ -133,6 +138,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
+			return false
 		}
 		if cond.Equals != nil && *event.FileID == *cond.Equals {
 			return true
@@ -154,6 +160,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
+			return false
 		}
 		if cond.Equals != nil && *event.FileName == *cond.Equals {
 			return true
@@ -180,6 +187,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
+			return false
 		}
 		if cond.Equals != nil && *event.FileExt == *cond.Equals {
 			return true
@@ -201,6 +209,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
+			return false
 		}
 		if cond.Equals != nil && *event.DestinationID == *cond.Equals {
 			return true
@@ -221,8 +230,9 @@ func CheckCondition(event *Event, cond Condition) bool {
 			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
+			return false
 		}
-		if cond.Equals != nil && *event.DestinationType == *cond.Equals {
+		if cond.Equals != nil && event.DestinationType != nil && *event.DestinationType == *cond.Equals {
 			return true
 		}
 		if len(cond.In) > 0 {
@@ -241,6 +251,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
+			return false
 		}
 		if cond.Equals != nil && *event.Destination == *cond.Equals {
 			return true
@@ -252,11 +263,11 @@ func CheckCondition(event *Event, cond Condition) bool {
 				}
 			}
 		}
-		if cond.Exists != nil && *cond.Exists && *event.DestinationID != "" {
+		if cond.Exists != nil && *cond.Exists && *event.Destination != "" {
 			return true
 		}
 		// Проверка содержания подстроки
-		if (cond.Contains != nil && strings.Contains(*event.DestinationID, *cond.Contains)){
+		if (cond.Contains != nil && strings.Contains(*event.Destination, *cond.Contains)){
 			return true
 		}
 
@@ -266,6 +277,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
+			return false
 		}
 		if cond.Equals != nil && *event.Severity == *cond.Equals {
 			return true
@@ -326,6 +338,50 @@ func CheckCondition(event *Event, cond Condition) bool {
 		if (cond.Exists != nil && *cond.Exists && *event.SizeBytes >= 0) {
 			return true
 		}
+
+		if (cond.Equals != nil) {
+			size, err  := strconv.ParseInt(*cond.Equals, 10, 64)
+			if (err != nil) {
+				log.Printf("Ошибка парсинга числа поля equals: %v", err)
+			} else if (*event.SizeBytes == size) {
+				return true
+			}
+		}
+
+		if (len(cond.In) > 0) {
+			for _, in := range cond.In {
+				size, err  := strconv.ParseInt(in, 10, 64)
+				if (err != nil) {
+				log.Printf("Ошибка парсинга числа поля in: %v", err)
+				} else if (*event.SizeBytes == size) {
+					return true
+				}
+
+			}
+		}
+
+		if (cond.Gt != nil && *event.SizeBytes > *cond.Gt) {
+			return true
+		}
+
+		if (cond.Gte != nil && *event.SizeBytes >= *cond.Gte) {
+			return true
+		}
+
+		if (cond.Lt != nil && *event.SizeBytes < *cond.Lt) {
+			return true
+		}
+
+		if (cond.Lte != nil && *event.SizeBytes <= *cond.Lte) {
+			return true
+		}
+
+		if (cond.Contains != nil) {
+			log.Printf("contains is not supported for numeric field size_bytes")
+			return  false
+		}
 	}
 	return false
 }
+
+

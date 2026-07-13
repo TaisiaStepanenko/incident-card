@@ -17,13 +17,13 @@ func main() {
 
 	args := os.Args
 	if (len(args) < 3) {
-		fmt.Println("Использование: incident-card --events <file> --event-id <id> --before <dur> --after <dur> --request <json-file> --out <md-file> --json <json-file> --factors <yaml-файл>")
+		fmt.Println("Использование: incident-card build --events <file> --event-id <id> --before <dur> --after <dur> --request <json-file> --out <md-file> --json <json-file> --factors <yaml-файл>")
 		return
 	}
 
 	var eventsFile, eventId, beforeEvent, afterEvent, outFile, requestFile, jsonFile, factorsFile string
-
-	for i := 1; i < len(args); i += 2 {
+	// берём аргументы после имени программы и build/generate
+	for i := 2; i < len(args); i += 2 {
 		switch args[i] {
 		case "--events":
 			eventsFile = args[i+1]
