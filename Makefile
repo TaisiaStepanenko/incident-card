@@ -1,10 +1,11 @@
 
 ## имя бинарника
-BINARY_NAME := incident-card
+BINARY_NAME := incident-card.exe
 ## путь к основному пакету
 MAIN_PKG := ./cmd/incident-card/main.go
 
 TESTDATA_DIR := ./testdata/control
+TESTDATA_DIR_FOR_CLEAN := .\testdata\control
 DEMO_EVENT_ID := evt_12345
 DEMO_BEFORE := 30m
 DEMO_AFTER := 10m
@@ -40,4 +41,5 @@ demo: build
 ## использовано del, так как запускается на Windows, -Q принудительное удаление
 clean: 
 	del /Q $(BINARY_NAME)
-	del /Q $(TESTDATA_DIR)/card.md $(TESTDATA_DIR)/card.json
+	del /Q $(TESTDATA_DIR_FOR_CLEAN)\card.md
+	del /Q $(TESTDATA_DIR_FOR_CLEAN)\card.json
