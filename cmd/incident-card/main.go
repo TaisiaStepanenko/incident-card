@@ -29,12 +29,13 @@ func main() {
 	jsonFile := buildCommand.String("json", "", "выходной JSON-файл (отчёт)")
 	requestFile := buildCommand.String("request", "", "JSON-файл, содержащий параметры запроса")
 	factorsFile := buildCommand.String("factors", "", "YAML-файл, содержащий правила подозрительных факторов")
-
+	
 	// Флаги команды generate (пока без переменных)
-	generateCommand.String("count", "100000", "количество событий")
-	generateCommand.String("scenario", "external_send", "сценарий")
-	generateCommand.String("out", "", "выходной файл")
-	generateCommand.Int("seed", 42, "seed генератора")
+	count := generateCommand.Int("count", 100000, "количество событий")
+	scenario := generateCommand.String("scenario", "external_send", "сценарий")
+	outGenFile := generateCommand.String("out", "", "выходной файл")
+	seed := generateCommand.Int64("seed", 42, "seed генератора")
+
 
 	args := os.Args
 	if (len(args) < 2) {
@@ -182,6 +183,38 @@ func main() {
 		}
 	} else if (os.Args[1] == "generate") {
 		generateCommand.Parse(os.Args[2:])
+
+		if (*outGenFile == "") {
+			log.Fatalf("Необходимо указать файл --out, в который необходимо записать сгенерированные события")
+		}
+
+		events, err := internal.GenerateEvents(*count, *scenario, *seed)
+		if (err != nil) {
+			log.Fatalf("Ошибка генерации: %v", err)
+		}
+
+	
+		jsonlFileOpen, err := os.OpenFile(*outGenFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+		if (err != nil) {
+			log.Fatalf("Не удалось открыть файл %s: %v", *outGenFile, err)
+		}
+		defer jsonlFileOpen.Close()
+		
+		for _, event := range events {
+			data, err := json.Marshal(event)
+			if (err != nil) {
+				log.Fatalf("Ошибка сериализации JSONL: %v", err)
+			}
+			_, err = jsonlFileOpen.Write(data)
+			if (err != nil) {
+				log.Fatalf("Ошибка записи в файл: %v", err)
+			}
+			_, err = jsonlFileOpen.Write([]byte("\n"))
+			if (err != nil) {
+				log.Fatalf("Ошибка записи перевода строки в файл: %v", err)
+			}
+		}
+		fmt.Printf("JSON сохранён в файл %s\n", *outGenFile)
 	} else {
 		log.Fatalf("Команда %s не поддерживается программой. Попробуйте заменить её на build или generate", os.Args[1])
 	}

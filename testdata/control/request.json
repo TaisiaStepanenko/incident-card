@@ -6,5 +6,5 @@
   "include_same_user": true,
   "include_same_file": true,
   "include_same_destination": true,
-  "max_events_per_section": 50
+  "max_events_per_section": 9
 }

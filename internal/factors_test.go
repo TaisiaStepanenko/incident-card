@@ -6,14 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func strPtr(s string) *string {
-	return &s
-}
-
-func int64SizeBytes(i int64) *int64 {
-	return &i
-}
-
 func TestCheckCondition(t *testing.T) {
 	event := &Event{EventID: "evt_12345", TimeStamp: "2026-06-16T10:15:00Z", UserID: "user_017", MachineID: "m_001", Action: "send", Channel: "local",
 	Department: strPtr("sales"), FileID: strPtr("file_001"), FileName: strPtr("file.txt"), FileExt: strPtr("txt"), DestinationID: strPtr("dst_001"),

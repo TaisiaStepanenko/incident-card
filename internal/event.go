@@ -46,7 +46,7 @@ type Answer struct {
 	SameDestinationEvents    []string       `json:"same_destination_events,omitempty"`
 	TimeLine                 []TimelineItem `json:"timeline"`
 	SuspiciousFactors        []string       `json:"suspicious_factors,omitempty"`
-	LinksToTheOriginalEvents []LinkInFile
+	LinksToTheOriginalEvents []LinkInFile   `json:"links_to_original_events,omitempty"`
 }
 
 type Condition struct {
@@ -92,7 +92,7 @@ const (
 )
 
 type LinkInFile struct {
-	EventID  string
-	FileName string
-	FileLine int
+	EventID  string `json:"event_id"`
+	FileName string `json:"file_name"`
+	FileLine int    `json:"file_line"`
 }

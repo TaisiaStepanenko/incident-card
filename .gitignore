@@ -1,0 +1,4 @@
+coverage.txt
+coverage.out
+*.out
+*.exe
