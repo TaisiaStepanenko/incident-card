@@ -12,24 +12,35 @@ func GenerateEvents(count int, scenario string, seed int64) ([]Event, error) {
 	}
 
 	var events []Event
+	var err error
 	rng := rand.New(rand.NewSource(seed))
+	baseTime := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(seed) * time.Hour)
+
 
 	switch scenario {
 	case "external_send":
-		events = GenerateExternalSend(rng, count)
+		events, err = GenerateExternalSend(rng, count, baseTime)
 	case "usb_copy":
-		events = GenerateUSBCopy(rng, count)
+		events, err = GenerateUSBCopy(rng, count, baseTime)
 	case "cloud_upload":
-		events = GenerateCloudUploud(rng, count)
+		events, err = GenerateCloudUpload(rng, count, baseTime)
 	default:
 		return nil, fmt.Errorf("Неизвестный сценарий %s, доступные сценарии external_send, usb_copy, cloud_uplod", scenario)
 	}
+
+	if (err != nil) {
+		return nil, fmt.Errorf("%w", err)
+	}
+
 	return events, nil
 }
 
-func GenerateExternalSend(rng *rand.Rand, count int) []Event {
+func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
-	baseTime := time.Now().Add(-24 * time.Hour)
+
+	if (count > 0 && count < 5) {
+		return nil, fmt.Errorf("Для данного сценария (external_send) значение count должно быть не менее 5")
+	}
 
 	user := "user_017"
 	machine := "pc_003"
@@ -139,12 +150,15 @@ func GenerateExternalSend(rng *rand.Rand, count int) []Event {
 	for i := 5; i<count; i++ {
 		events[i] = GenerateRandomEvent(rng, baseTime)
 	}
-	return events
+	return events, nil
 }
 
-func GenerateUSBCopy(rng *rand.Rand, count int) []Event {
+func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
-	baseTime := time.Now().Add(-24 * time.Hour)
+
+	if (count > 0 && count < 4) {
+		return nil, fmt.Errorf("Для данного сценария (usb_copy) значение count должно быть не менее 4")
+	}
 
 	user := "user_017"
 	machine := "pc_003"
@@ -236,12 +250,15 @@ func GenerateUSBCopy(rng *rand.Rand, count int) []Event {
 	for i := 4; i<count; i++ {
 		events[i] = GenerateRandomEvent(rng, baseTime)
 	}
-	return events
+	return events, nil
 }
 
-func GenerateCloudUploud(rng *rand.Rand, count int) []Event {
+func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
-	baseTime := time.Now().Add(-24 * time.Hour)
+
+	if (count > 0 && count < 4) {
+		return nil, fmt.Errorf("Для данного сценария (cloud_upload) значение count должно быть не менее 4")
+	}
 
 	user := "user_017"
 	machine := "pc_003"
@@ -262,7 +279,7 @@ func GenerateCloudUploud(rng *rand.Rand, count int) []Event {
 		UserID:	user, 
 		MachineID: machine,
 		Department:	&department,
-		Action:	"cloud_uploud", 
+		Action:	"cloud_upload", 
 		Channel: "cloud", 
 		FileID:	&fileID,
 		FileName: &fileName,
@@ -333,7 +350,7 @@ func GenerateCloudUploud(rng *rand.Rand, count int) []Event {
 	for i := 4; i<count; i++ {
 		events[i] = GenerateRandomEvent(rng, baseTime)
 	}
-	return events
+	return events, nil
 }
 
 func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time) Event {
@@ -343,8 +360,8 @@ func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time) Event {
 	departments := []string{ "sales", "hr", "finance", "dev", "legal", "support"}
 	actions := []string{ "open_file", "copy_file", "create_archive", "email_send", "cloud_upload", "messenger_send", "copy_to_usb", "delete_file", "print_file"}
 	channels := []string{"local", "email", "usb", "cloud", "messenger", "printer"}
-	fileNames := []string{"user_015", "user_016", "user_017", "user_018", "user_019", "user_020"}
-	fileExts := []string{"user_015", "user_016", "user_017", "user_018", "user_019", "user_020"}
+	fileNames := []string{"doc.docx", "report.xlsx", "data.pdf", "archive.zip", "main.go", "backup.sql", "test.txt"}
+	fileExts := []string{"docx", "xlsx", "pdf", "zip", "go", "sql", "txt"}
 	contentClasses := [][]string{{"client_data"}, {"personal_data"}, {"finance"}, {"source_code"}, {"legal"}, {"none"}}
 	severitis := []string{"low", "medium", "high", "critical"}
 

@@ -76,7 +76,7 @@ func TestBuildAnswer(t *testing.T) {
 	mainEvent, isExist := index.GetEvent(req.MainEventID)
 	require.True(t, isExist)
 
-	answer := BuildAnswer(mainEvent, index, events, links, req, []Rule{})
+	answer, _ := BuildAnswer(mainEvent, index, events, links, req, []Rule{})
 
 	// Проверяем успешно ли записаны данные при вызове BuildAnswer
 	assert.Equal(t, "inc_001", answer.IncidentID)
@@ -124,14 +124,14 @@ func TestBuildAnswer(t *testing.T) {
 
 	// Устанавливаем лимит меньше количесва записей
 	req.MaxEventsPerSection = 4
-	answer = BuildAnswer(mainEvent, index, events, links, req, []Rule{})
+	answer, _ = BuildAnswer(mainEvent, index, events, links, req, []Rule{})
 	
 	assert.Len(t, answer.TimeLine, 4)
 	assert.Len(t, answer.LinksToTheOriginalEvents, 4)
 
 	// Устанавливаем лимит 0 (должен автоматически установить 50 и вывести все 6 строк)
 	req.MaxEventsPerSection = 0
-	answer = BuildAnswer(mainEvent, index, events, links, req, []Rule{})
+	answer, _ = BuildAnswer(mainEvent, index, events, links, req, []Rule{})
 	
 	assert.Len(t, answer.TimeLine, 6)
 	assert.Len(t, answer.LinksToTheOriginalEvents, 6)

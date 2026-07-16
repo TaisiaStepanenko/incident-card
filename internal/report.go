@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -15,12 +14,12 @@ func MakeLimitSlice(events []*Event, limit int) []*Event {
 	return events
 }
 
-func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []LinkInFile, req Request, rules []Rule) Answer {
+func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []LinkInFile, req Request, rules []Rule) (Answer, error) {
 
 	// Сбор событий по временному контексту 
 	timeEvents, err := GetEventsInTimeRange(events, mainEvent.TimeStamp, req.WindowBefore, req.WindowAfter)
 	if err != nil {
-		log.Fatalf("Ошибка при получении временного контекста событий: %v", err)
+		return Answer{}, fmt.Errorf("Ошибка при получении временного контекста событий: %v", err)
 	}
 
 	// События пользователя главного события (если есть в запросе)
@@ -98,7 +97,7 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 		TimeLine: timelineItems,
 		SuspiciousFactors: suspicious,
 		LinksToTheOriginalEvents: linksTotimelineItems,
-	}
+	}, nil
 
 }
 

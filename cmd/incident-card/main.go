@@ -17,8 +17,8 @@ import (
 func main() {  
 
 	// Определение подкоманд
-	buildCommand := flag.NewFlagSet("build", flag.ExitOnError)
-	generateCommand := flag.NewFlagSet("generate", flag.ExitOnError)
+	buildCommand := flag.NewFlagSet("build", flag.ContinueOnError)
+	generateCommand := flag.NewFlagSet("generate", flag.ContinueOnError)
 
 	// Флаги команды build
 	eventsFile := buildCommand.String("events", "", "JSONL-файл, содержащий информацию о событиях")
@@ -142,7 +142,10 @@ func main() {
 			rules = factArr.Factors
 		}
 
-		answer := internal.BuildAnswer(mainEvent, index, events, eventsLink, req, rules)
+		answer, err := internal.BuildAnswer(mainEvent, index, events, eventsLink, req, rules)
+		if (err != nil) {
+			log.Fatalf("Ошибка построения карточки: %v", err)
+		}
 
 		if (*outFile != "") {
 			markdownCard := internal.GenerateMarkdownCard(mainEvent, &answer, index, limit)
