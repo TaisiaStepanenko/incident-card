@@ -106,12 +106,26 @@ function Invoke-CheckCommand {
     $started = Get-Date
 
     $runner = @"
-`$ErrorActionPreference = 'Continue'
+`$ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath '$($WorkingDirectory.Replace("'", "''"))'
-$Command
-`$exitCode = `$global:LASTEXITCODE
-if (`$null -eq `$exitCode) { `$exitCode = 0 }
-exit `$exitCode
+try {
+    `$global:LASTEXITCODE = `$null
+    `$Error.Clear()
+    $Command
+    `$success = `$?
+    `$exitCode = `$global:LASTEXITCODE
+    if (`$null -eq `$exitCode) {
+        if (`$success -and `$Error.Count -eq 0) {
+            `$exitCode = 0
+        } else {
+            `$exitCode = 1
+        }
+    }
+    exit `$exitCode
+} catch {
+    Write-Error `$_
+    exit 1
+}
 "@
 
     Set-Content -LiteralPath $runnerPath -Value $runner -Encoding UTF8
