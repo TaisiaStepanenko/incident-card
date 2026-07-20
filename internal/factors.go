@@ -177,7 +177,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 		}
 
 		// Проверка содержания подстроки
-		if (cond.Contains != nil && strings.Contains(*event.FileName, *cond.Contains)){
+		if cond.Contains != nil && strings.Contains(*event.FileName, *cond.Contains) {
 			return true
 		}
 
@@ -267,7 +267,7 @@ func CheckCondition(event *Event, cond Condition) bool {
 			return true
 		}
 		// Проверка содержания подстроки
-		if (cond.Contains != nil && strings.Contains(*event.Destination, *cond.Contains)){
+		if cond.Contains != nil && strings.Contains(*event.Destination, *cond.Contains) {
 			return true
 		}
 
@@ -295,22 +295,22 @@ func CheckCondition(event *Event, cond Condition) bool {
 
 	// Поле типа []string
 	case "content_classes":
-		if (cond.Contains != nil) {
+		if cond.Contains != nil {
 			for _, class := range event.ContentClasses {
-				if (strings.Contains(class, *cond.Contains)) {
+				if strings.Contains(class, *cond.Contains) {
 					return true
 				}
 			}
 		}
 
-		if (cond.Exists != nil && *cond.Exists && len(event.ContentClasses) > 0) {
+		if cond.Exists != nil && *cond.Exists && len(event.ContentClasses) > 0 {
 			return true
 		}
 
 		// Проверка есть ли в массиве значение соответствующее cond.Equals
-		if (cond.Equals != nil) {
+		if cond.Equals != nil {
 			for _, class := range event.ContentClasses {
-				if (class == *cond.Equals) {
+				if class == *cond.Equals {
 					return true
 				}
 			}
@@ -328,60 +328,58 @@ func CheckCondition(event *Event, cond Condition) bool {
 
 	// Поле типа *int64
 	case "size_bytes":
-		if (event.SizeBytes == nil) {
-			if (cond.Exists != nil && *cond.Exists) {
+		if event.SizeBytes == nil {
+			if cond.Exists != nil && *cond.Exists {
 				return false
 			}
 			return false
 		}
-		
-		if (cond.Exists != nil && *cond.Exists && *event.SizeBytes >= 0) {
+
+		if cond.Exists != nil && *cond.Exists && *event.SizeBytes >= 0 {
 			return true
 		}
 
-		if (cond.Equals != nil) {
-			size, err  := strconv.ParseInt(*cond.Equals, 10, 64)
-			if (err != nil) {
+		if cond.Equals != nil {
+			size, err := strconv.ParseInt(*cond.Equals, 10, 64)
+			if err != nil {
 				log.Printf("Ошибка парсинга числа поля equals: %v", err)
-			} else if (*event.SizeBytes == size) {
+			} else if *event.SizeBytes == size {
 				return true
 			}
 		}
 
-		if (len(cond.In) > 0) {
+		if len(cond.In) > 0 {
 			for _, in := range cond.In {
-				size, err  := strconv.ParseInt(in, 10, 64)
-				if (err != nil) {
-				log.Printf("Ошибка парсинга числа поля in: %v", err)
-				} else if (*event.SizeBytes == size) {
+				size, err := strconv.ParseInt(in, 10, 64)
+				if err != nil {
+					log.Printf("Ошибка парсинга числа поля in: %v", err)
+				} else if *event.SizeBytes == size {
 					return true
 				}
 
 			}
 		}
 
-		if (cond.Gt != nil && *event.SizeBytes > *cond.Gt) {
+		if cond.Gt != nil && *event.SizeBytes > *cond.Gt {
 			return true
 		}
 
-		if (cond.Gte != nil && *event.SizeBytes >= *cond.Gte) {
+		if cond.Gte != nil && *event.SizeBytes >= *cond.Gte {
 			return true
 		}
 
-		if (cond.Lt != nil && *event.SizeBytes < *cond.Lt) {
+		if cond.Lt != nil && *event.SizeBytes < *cond.Lt {
 			return true
 		}
 
-		if (cond.Lte != nil && *event.SizeBytes <= *cond.Lte) {
+		if cond.Lte != nil && *event.SizeBytes <= *cond.Lte {
 			return true
 		}
 
-		if (cond.Contains != nil) {
+		if cond.Contains != nil {
 			log.Printf("contains is not supported for numeric field size_bytes")
-			return  false
+			return false
 		}
 	}
 	return false
 }
-
-

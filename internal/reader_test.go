@@ -19,9 +19,9 @@ func createTestFile(t *testing.T, content string) string {
 	return testFile
 }
 
-// Ошибка открытия файла 
+// Ошибка открытия файла
 func TestReadEventsFileOpeningError(t *testing.T) {
-	
+
 	_, _, err := ReadEvents("noFile.json")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Не удалось открыть файл")
@@ -56,7 +56,7 @@ func TestReadEventsEmptyLines(t *testing.T) {
 	content := `{"event_id":"evt_12345","timestamp":"2026-06-16T10:00:00Z","user_id":"user_017","machine_id":"pc_003","action":"open","channel":"local"}
 
 	{"event_id":"evt_12346","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}`
-	
+
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
@@ -76,17 +76,16 @@ func TestReadEventsEmptyLines(t *testing.T) {
 	assert.Equal(t, 3, eventLinks[1].FileLine)
 }
 
-
 // Проверка на корректную обработку слишком длинных строк в файле
 func TestReadEventsLongLines(t *testing.T) {
-	longLine := make([]byte, 10*1024*1024 + 1)
+	longLine := make([]byte, 10*1024*1024+1)
 	for i := range longLine {
 		longLine[i] = 'i'
-	} 
+	}
 
 	content := `{"event_id":"evt_12345","timestamp":"2026-06-16T10:00:00Z","user_id":"user_017","machine_id":"pc_003","action":"open","channel":"local"}
 {"event_id":"evt_12346","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}` + "\n" + string(longLine)
-	
+
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
@@ -108,15 +107,15 @@ func TestReadEventsLongLines(t *testing.T) {
 
 // Проверка на корректную обработку неккоректных объектов JSON в файле
 func TestReadEventsInvalidJSON(t *testing.T) {
-	longLine := make([]byte, 10*1024*1024 + 1)
+	longLine := make([]byte, 10*1024*1024+1)
 	for i := range longLine {
 		longLine[i] = 'i'
-	} 
+	}
 
 	content := `{json}
 {"event_id":"evt_12345","timestamp":"2026-06-16T10:00:00Z","user_id":"user_017","machine_id":"pc_003","action":"open","channel":"local"}
 {"event_id":"evt_12346","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}` + "\n" + string(longLine)
-	
+
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
@@ -135,6 +134,3 @@ func TestReadEventsInvalidJSON(t *testing.T) {
 	assert.Equal(t, testFile, eventLinks[1].FileName)
 	assert.Equal(t, 3, eventLinks[1].FileLine)
 }
-
-
-

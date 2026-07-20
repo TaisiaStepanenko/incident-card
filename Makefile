@@ -23,7 +23,7 @@ test:
 
 ## Запуск бенчмарков
 bench:
-	go test ./... -bench=.
+	go test ./... -bench=. -benchmem
 
 
 ## Демо запуск на тестовом наборе данных

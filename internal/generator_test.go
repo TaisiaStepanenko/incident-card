@@ -81,7 +81,6 @@ func TestGenerateCloudUploadTooSmallCount(t *testing.T) {
 	assert.Contains(t, err.Error(), "Для данного сценария (cloud_upload) значение count должно быть не менее 4")
 }
 
-
 // Одинаковое seed должно выдавать одинаковые результаты генерации
 func TestGenerateEventsDeterministicSeed(t *testing.T) {
 	events1, err1 := GenerateEvents(5, "external_send", 95)
@@ -101,7 +100,6 @@ func TestGenerateEventsDiffSeed(t *testing.T) {
 	assert.NotEqual(t, events1, events2)
 }
 
-
 // Создание ранодомных событий external_send
 func TestGenerateEventsExternalRandomEvents(t *testing.T) {
 	events, err := GenerateEvents(13, "external_send", 42)
@@ -116,7 +114,6 @@ func TestGenerateEventsExternalRandomEvents(t *testing.T) {
 	assert.Equal(t, "evt_12347", events[3].EventID) // событие после
 	assert.Equal(t, "evt_12346", events[4].EventID) // связное событие того же пользователя
 }
-
 
 // Создание ранодомных событий cloud_upload
 func TestGenerateCloudUploadRandomEvents(t *testing.T) {

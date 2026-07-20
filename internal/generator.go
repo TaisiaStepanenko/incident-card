@@ -16,7 +16,6 @@ func GenerateEvents(count int, scenario string, seed int64) ([]Event, error) {
 	rng := rand.New(rand.NewSource(seed))
 	baseTime := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(seed) * time.Hour)
 
-
 	switch scenario {
 	case "external_send":
 		events, err = GenerateExternalSend(rng, count, baseTime)
@@ -28,7 +27,7 @@ func GenerateEvents(count int, scenario string, seed int64) ([]Event, error) {
 		return nil, fmt.Errorf("Неизвестный сценарий %s, доступные сценарии external_send, usb_copy, cloud_uplod", scenario)
 	}
 
-	if (err != nil) {
+	if err != nil {
 		return nil, fmt.Errorf("%w", err)
 	}
 
@@ -38,7 +37,7 @@ func GenerateEvents(count int, scenario string, seed int64) ([]Event, error) {
 func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
 
-	if (count > 0 && count < 5) {
+	if count > 0 && count < 5 {
 		return nil, fmt.Errorf("Для данного сценария (external_send) значение count должно быть не менее 5")
 	}
 
@@ -53,101 +52,101 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 	destinationType := "external"
 	destination := "external_email_001"
 
-	// Определяем главное событие 
+	// Определяем главное событие
 	mainEventTime := baseTime.Add(10 * time.Minute)
 	events[0] = Event{
-		EventID: "evt_12345",
-		TimeStamp: mainEventTime.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"email_send", 
-		Channel: "email", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
-		ContentClasses: contentClasses,
-		DestinationID: &destinationID,
+		EventID:         "evt_12345",
+		TimeStamp:       mainEventTime.Format(time.RFC3339),
+		UserID:          user,
+		MachineID:       machine,
+		Department:      &department,
+		Action:          "email_send",
+		Channel:         "email",
+		FileID:          &fileID,
+		FileName:        &fileName,
+		FileExt:         &fileExt,
+		ContentClasses:  contentClasses,
+		DestinationID:   &destinationID,
 		DestinationType: &destinationType,
-		Destination: &destination,
-		SizeBytes: int64SizeBytes(204800),
-		Severity: strPtr("high"),
+		Destination:     &destination,
+		SizeBytes:       int64SizeBytes(204800),
+		Severity:        strPtr("high"),
 	}
 
 	// Событие до (открытие файла)
 	beforeMainEvent := mainEventTime.Add(-10 * time.Minute)
 	events[1] = Event{
-		EventID: "evt_12338",
-		TimeStamp: beforeMainEvent.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"open_file", 
-		Channel: "local", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
+		EventID:        "evt_12338",
+		TimeStamp:      beforeMainEvent.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "open_file",
+		Channel:        "local",
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes: int64SizeBytes(204800),
-		Severity: strPtr("low"),
+		SizeBytes:      int64SizeBytes(204800),
+		Severity:       strPtr("low"),
 	}
 
 	// Событие до (создание архива)
 	beforeMainEvent2 := mainEventTime.Add(-6 * time.Minute)
 	events[2] = Event{
-		EventID: "evt_12339",
-		TimeStamp: beforeMainEvent2.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"create_archive", 
-		Channel: "local", 
-		FileID:	&fileID,
-		FileName: strPtr("client_base.zip"),
-		FileExt: strPtr("zip"),
+		EventID:        "evt_12339",
+		TimeStamp:      beforeMainEvent2.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "create_archive",
+		Channel:        "local",
+		FileID:         &fileID,
+		FileName:       strPtr("client_base.zip"),
+		FileExt:        strPtr("zip"),
 		ContentClasses: contentClasses,
-		SizeBytes: int64SizeBytes(102400),
-		Severity: strPtr("medium"),
+		SizeBytes:      int64SizeBytes(102400),
+		Severity:       strPtr("medium"),
 	}
 
 	// События после (удаление файла)
 	afterMainEvent := mainEventTime.Add(40 * time.Minute)
 	events[3] = Event{
-		EventID: "evt_12347",
-		TimeStamp: afterMainEvent.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"delete_file", 
-		Channel: "local", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
+		EventID:        "evt_12347",
+		TimeStamp:      afterMainEvent.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "delete_file",
+		Channel:        "local",
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes: int64SizeBytes(204800),
-		Severity: strPtr("high"),
+		SizeBytes:      int64SizeBytes(204800),
+		Severity:       strPtr("high"),
 	}
 
 	// События того же пользователя, но с другим файлом (проверка связанных по пользователю файлов)
 	eventTime := mainEventTime.Add(15 * time.Minute)
 	events[4] = Event{
-		EventID: "evt_12346",
-		TimeStamp: eventTime.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"open_file", 
-		Channel: "local", 
-		FileID:	strPtr("file_012"),
-		FileName: strPtr("info.pdf"),
-		FileExt: strPtr("pdf"),
+		EventID:        "evt_12346",
+		TimeStamp:      eventTime.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "open_file",
+		Channel:        "local",
+		FileID:         strPtr("file_012"),
+		FileName:       strPtr("info.pdf"),
+		FileExt:        strPtr("pdf"),
 		ContentClasses: []string{"legal"},
-		SizeBytes: int64SizeBytes(102400),
-		Severity: strPtr("low"),
+		SizeBytes:      int64SizeBytes(102400),
+		Severity:       strPtr("low"),
 	}
 
 	// Генерируем оставшиеся count-5 событий, начиная с 6, так как предыдущие 5 уже составлены
-	for i := 5; i<count; i++ {
+	for i := 5; i < count; i++ {
 		events[i] = GenerateRandomEvent(rng, baseTime)
 	}
 	return events, nil
@@ -156,7 +155,7 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
 
-	if (count > 0 && count < 4) {
+	if count > 0 && count < 4 {
 		return nil, fmt.Errorf("Для данного сценария (usb_copy) значение count должно быть не менее 4")
 	}
 
@@ -171,83 +170,83 @@ func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, er
 	destinationType := "usb"
 	destination := "usb_device_001"
 
-	// Определяем главное событие 
+	// Определяем главное событие
 	mainEventTime := baseTime.Add(15 * time.Minute)
 	events[0] = Event{
-		EventID: "evt_12345",
-		TimeStamp: mainEventTime.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"copy_to_usb", 
-		Channel: "usb", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
-		ContentClasses: contentClasses,
-		DestinationID: &destinationID,
+		EventID:         "evt_12345",
+		TimeStamp:       mainEventTime.Format(time.RFC3339),
+		UserID:          user,
+		MachineID:       machine,
+		Department:      &department,
+		Action:          "copy_to_usb",
+		Channel:         "usb",
+		FileID:          &fileID,
+		FileName:        &fileName,
+		FileExt:         &fileExt,
+		ContentClasses:  contentClasses,
+		DestinationID:   &destinationID,
 		DestinationType: &destinationType,
-		Destination: &destination,
-		SizeBytes: int64SizeBytes(102400),
-		Severity: strPtr("high"),
+		Destination:     &destination,
+		SizeBytes:       int64SizeBytes(102400),
+		Severity:        strPtr("high"),
 	}
 
 	// События до (открытие файла)
 	beforeMainEvent := mainEventTime.Add(-17 * time.Minute)
 	events[1] = Event{
-		EventID: "evt_12338",
-		TimeStamp: beforeMainEvent.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"open_file", 
-		Channel: "local", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
+		EventID:        "evt_12338",
+		TimeStamp:      beforeMainEvent.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "open_file",
+		Channel:        "local",
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes: int64SizeBytes(102400),
-		Severity: strPtr("low"),
+		SizeBytes:      int64SizeBytes(102400),
+		Severity:       strPtr("low"),
 	}
 
 	// Событие после (удаление файла)
 	afterMainEvent := mainEventTime.Add(40 * time.Minute)
 	events[2] = Event{
-		EventID: "evt_12347",
-		TimeStamp: afterMainEvent.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"delete_file", 
-		Channel: "local", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
+		EventID:        "evt_12347",
+		TimeStamp:      afterMainEvent.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "delete_file",
+		Channel:        "local",
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes: int64SizeBytes(204800),
-		Severity: strPtr("high"),
+		SizeBytes:      int64SizeBytes(204800),
+		Severity:       strPtr("high"),
 	}
 
 	// События того же пользователя, но с другим файлом (проверка связанных по пользователю файлов)
 	eventTime := mainEventTime.Add(16 * time.Minute)
 	events[3] = Event{
-		EventID: "evt_12346",
-		TimeStamp: eventTime.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"open_file", 
-		Channel: "local", 
-		FileID:	strPtr("file_012"),
-		FileName: strPtr("info.pdf"),
-		FileExt: strPtr("pdf"),
+		EventID:        "evt_12346",
+		TimeStamp:      eventTime.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "open_file",
+		Channel:        "local",
+		FileID:         strPtr("file_012"),
+		FileName:       strPtr("info.pdf"),
+		FileExt:        strPtr("pdf"),
 		ContentClasses: []string{"legal"},
-		SizeBytes: int64SizeBytes(102400),
-		Severity: strPtr("low"),
+		SizeBytes:      int64SizeBytes(102400),
+		Severity:       strPtr("low"),
 	}
 
 	// Генерируем оставшиеся count-4 событий, начиная с 5, так как предыдущие 4 уже составлены
-	for i := 4; i<count; i++ {
+	for i := 4; i < count; i++ {
 		events[i] = GenerateRandomEvent(rng, baseTime)
 	}
 	return events, nil
@@ -256,7 +255,7 @@ func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, er
 func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
 
-	if (count > 0 && count < 4) {
+	if count > 0 && count < 4 {
 		return nil, fmt.Errorf("Для данного сценария (cloud_upload) значение count должно быть не менее 4")
 	}
 
@@ -271,83 +270,83 @@ func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event
 	destinationType := "cloud"
 	destination := "cloud_storage_001"
 
-	// Определяем главное событие 
+	// Определяем главное событие
 	mainEventTime := baseTime.Add(17 * time.Minute)
 	events[0] = Event{
-		EventID: "evt_12345",
-		TimeStamp: mainEventTime.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"cloud_upload", 
-		Channel: "cloud", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
-		ContentClasses: contentClasses,
-		DestinationID: &destinationID,
+		EventID:         "evt_12345",
+		TimeStamp:       mainEventTime.Format(time.RFC3339),
+		UserID:          user,
+		MachineID:       machine,
+		Department:      &department,
+		Action:          "cloud_upload",
+		Channel:         "cloud",
+		FileID:          &fileID,
+		FileName:        &fileName,
+		FileExt:         &fileExt,
+		ContentClasses:  contentClasses,
+		DestinationID:   &destinationID,
 		DestinationType: &destinationType,
-		Destination: &destination,
-		SizeBytes: int64SizeBytes(4476205),
-		Severity: strPtr("high"),
+		Destination:     &destination,
+		SizeBytes:       int64SizeBytes(4476205),
+		Severity:        strPtr("high"),
 	}
 
 	// События до (создание архива)
 	beforeMainEvent := mainEventTime.Add(-20 * time.Minute)
 	events[1] = Event{
-		EventID: "evt_12338",
-		TimeStamp: beforeMainEvent.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"create_archive", 
-		Channel: "local", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
+		EventID:        "evt_12338",
+		TimeStamp:      beforeMainEvent.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "create_archive",
+		Channel:        "local",
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes: int64SizeBytes(4476205),
-		Severity: strPtr("medium"),
+		SizeBytes:      int64SizeBytes(4476205),
+		Severity:       strPtr("medium"),
 	}
 
 	// Событие после (удаление файла)
 	afterMainEvent := mainEventTime.Add(40 * time.Minute)
 	events[2] = Event{
-		EventID: "evt_12347",
-		TimeStamp: afterMainEvent.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"delete_file", 
-		Channel: "local", 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
+		EventID:        "evt_12347",
+		TimeStamp:      afterMainEvent.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "delete_file",
+		Channel:        "local",
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes: int64SizeBytes(4476205),
-		Severity: strPtr("high"),
+		SizeBytes:      int64SizeBytes(4476205),
+		Severity:       strPtr("high"),
 	}
 
 	// События того же пользователя, но с другим файлом (проверка связанных по пользователю файлов)
 	eventTime := mainEventTime.Add(16 * time.Minute)
 	events[3] = Event{
-		EventID: "evt_12346",
-		TimeStamp: eventTime.Format(time.RFC3339), 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	"open_file", 
-		Channel: "local", 
-		FileID:	strPtr("file_015"),
-		FileName: strPtr("info.pdf"),
-		FileExt: strPtr("pdf"),
+		EventID:        "evt_12346",
+		TimeStamp:      eventTime.Format(time.RFC3339),
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         "open_file",
+		Channel:        "local",
+		FileID:         strPtr("file_015"),
+		FileName:       strPtr("info.pdf"),
+		FileExt:        strPtr("pdf"),
 		ContentClasses: []string{"legal"},
-		SizeBytes: int64SizeBytes(4476205),
-		Severity: strPtr("low"),
+		SizeBytes:      int64SizeBytes(4476205),
+		Severity:       strPtr("low"),
 	}
 
 	// Генерируем оставшиеся count-4 событий, начиная с 5, так как предыдущие 4 уже составлены
-	for i := 4; i<count; i++ {
+	for i := 4; i < count; i++ {
 		events[i] = GenerateRandomEvent(rng, baseTime)
 	}
 	return events, nil
@@ -357,8 +356,8 @@ func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time) Event {
 	// Списки возможных значений
 	users := []string{"user_015", "user_016", "user_017", "user_018", "user_019", "user_020"}
 	machines := []string{"pc_001", "pc_002", "pc_003", "pc_004", "pc_005"}
-	departments := []string{ "sales", "hr", "finance", "dev", "legal", "support"}
-	actions := []string{ "open_file", "copy_file", "create_archive", "email_send", "cloud_upload", "messenger_send", "copy_to_usb", "delete_file", "print_file"}
+	departments := []string{"sales", "hr", "finance", "dev", "legal", "support"}
+	actions := []string{"open_file", "copy_file", "create_archive", "email_send", "cloud_upload", "messenger_send", "copy_to_usb", "delete_file", "print_file"}
 	channels := []string{"local", "email", "usb", "cloud", "messenger", "printer"}
 	fileNames := []string{"doc.docx", "report.xlsx", "data.pdf", "archive.zip", "main.go", "backup.sql", "test.txt"}
 	fileExts := []string{"docx", "xlsx", "pdf", "zip", "go", "sql", "txt"}
@@ -374,25 +373,25 @@ func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time) Event {
 	fileExt := fileExts[rng.Intn(len(fileExts))]
 	contentClass := contentClasses[rng.Intn(len(contentClasses))]
 	severity := severitis[rng.Intn(len(severitis))]
-	sizeBytes := int64(rng.Intn(1000000)) // до 1 MБ
-	eventID := fmt.Sprintf("evt_%06d", 13000+rng.Intn(100000))  // начинаем с 13000, чтобы точно избежать повторного использования ID
-	fileID := fmt.Sprintf("file_%03d", rng.Intn(100) + 1)
+	sizeBytes := int64(rng.Intn(1000000))                      // до 1 MБ
+	eventID := fmt.Sprintf("evt_%06d", 13000+rng.Intn(100000)) // начинаем с 13000, чтобы точно избежать повторного использования ID
+	fileID := fmt.Sprintf("file_%03d", rng.Intn(100)+1)
 
 	timestamp := baseTime.Add(time.Duration(rng.Intn(2*24*60*60)) * time.Second).Format(time.RFC3339) // 2*24*60*60 - количесвто секунд в 2 днях
 
 	return Event{
-		EventID: eventID,
-		TimeStamp: timestamp, 
-		UserID:	user, 
-		MachineID: machine,
-		Department:	&department,
-		Action:	action, 
-		Channel: channel, 
-		FileID:	&fileID,
-		FileName: &fileName,
-		FileExt: &fileExt,
+		EventID:        eventID,
+		TimeStamp:      timestamp,
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         action,
+		Channel:        channel,
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
 		ContentClasses: contentClass,
-		SizeBytes: &sizeBytes,
-		Severity: &severity,
+		SizeBytes:      &sizeBytes,
+		Severity:       &severity,
 	}
 }

@@ -2,4 +2,8 @@ coverage.txt
 coverage.out
 *.out
 *.exe
+*.dot
 *.png
+*.svg
+incident-card
+incident-card.exe
