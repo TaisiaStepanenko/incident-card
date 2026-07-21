@@ -58,10 +58,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Необходимо передать --events\n")
 			os.Exit(1)
 		}
-		if *eventId == "" {
-			fmt.Fprintf(os.Stderr, "Необходимо передать --events-id или передать его в JSON-файле\n")
-			os.Exit(1)
-		}
 
 		if *requestFile != "" {
 			reqData, err := os.ReadFile(*requestFile)
@@ -76,10 +72,21 @@ func main() {
 			}
 		}
 
-		// Задаём значения из JSON, но только в том случае, если данные ещё не были заполнены CLI (приоритет)
-		if req.MainEventID != "" && *eventId == "" {
+		// Проверка наличия значения обязательного флага event-id (либо в CLI, либо через request)
+		if *eventId == "" && *requestFile == "" {
+			fmt.Fprintf(os.Stderr, "Необходимо передать --event-id или --request c main_event_id.\n")
+				os.Exit(1)
+		}
+		// Если request есть, но event-id не задан в CLI, пытаемся взять из request
+		if (*eventId == "" && *requestFile != "") {
+			if (req.MainEventID == "") {
+				fmt.Fprintf(os.Stderr, "В файле запроса не указан main_event_id.\n")
+				os.Exit(1)
+			}
 			*eventId = req.MainEventID
 		}
+
+		// Задаём значения из JSON, но только в том случае, если данные ещё не были заполнены CLI (приоритет)
 		if req.WindowBefore != "" && *beforeEvent == "" {
 			*beforeEvent = req.WindowBefore
 		}
@@ -104,6 +111,14 @@ func main() {
 		limit := req.MaxEventsPerSection
 		if limit == 0 {
 			limit = 50
+		}
+
+		if (limit < 1) {
+			limit = 1
+		}
+		if (limit > 10000) {
+			limit = 10000
+			fmt.Printf("max_events_per_section ограничен до 10000\n")
 		}
 
 		events, eventsLink, err := internal.ReadEvents(*eventsFile)

@@ -6,9 +6,6 @@ MAIN_PKG := ./cmd/incident-card/main.go
 
 TESTDATA_DIR := ./testdata/control
 TESTDATA_DIR_FOR_CLEAN := .\testdata\control
-DEMO_EVENT_ID := evt_12345
-DEMO_BEFORE := 30m
-DEMO_AFTER := 10m
 .PHONY: build test bench demo clean
 
 ## Сборка бинарного файла
@@ -30,10 +27,12 @@ bench:
 ## зависимость build (перед demo сначала выполняется build)
 demo: build
 	./$(BINARY_NAME) build \
-		--events $(TESTDATA_DIR)/events.jsonl --event-id $(DEMO_EVENT_ID) \
-		--before $(DEMO_BEFORE) --after $(DEMO_AFTER) \
-		--out $(TESTDATA_DIR)/card.md --json $(TESTDATA_DIR)/card.json \
-		--factors $(TESTDATA_DIR)/factors.yaml --request $(TESTDATA_DIR)/request.json
+		--events $(TESTDATA_DIR)/events.jsonl \
+		--request $(TESTDATA_DIR)/request.json \
+		--factors $(TESTDATA_DIR)/factors.yaml \
+		--out $(TESTDATA_DIR)/card.md \
+		--json $(TESTDATA_DIR)/card.json \
+		--dot $(TESTDATA_DIR)/graph.dot
 	@echo "Демо-запуск завешён, результаты сохранены в файлы."
 
 
@@ -43,3 +42,5 @@ clean:
 	del /Q $(BINARY_NAME)
 	del /Q $(TESTDATA_DIR_FOR_CLEAN)\card.md
 	del /Q $(TESTDATA_DIR_FOR_CLEAN)\card.json
+	del /Q $(TESTDATA_DIR_FOR_CLEAN)\graph.dot
+	del /Q $(TESTDATA_DIR_FOR_CLEAN)\graph.png

@@ -1,26 +1,13 @@
 package internal
 
 import (
-	"math/rand"
 	"testing"
-	"time"
 )
-
-func GenerateBenchmarkEvents(count int) []Event {
-	rng := rand.New(rand.NewSource(42))
-	baseTime := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	events := make([]Event, count)
-	for i := 0; i < count; i++ {
-		events[i] = GenerateRandomEvent(rng, baseTime)
-	}
-	return events
-}
 
 // Измеряет время построения индекса
 func BenchmarkBuildIndex(b *testing.B) {
 	const events_size = 1000000
-	events := GenerateBenchmarkEvents(events_size)
+	events := GenerateStructuredBenchmarkEvents(events_size)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -31,7 +18,7 @@ func BenchmarkBuildIndex(b *testing.B) {
 // Измеряет время фильтрации событий по временному окну
 func BenchmarkGetEventsInTimeRange(b *testing.B) {
 	const events_size = 1000000
-	events := GenerateBenchmarkEvents(events_size)
+	events := GenerateStructuredBenchmarkEvents(events_size)
 	mainTime := "2026-06-16T10:15:00Z"
 	beforeDur := "30m"
 	afterDur := "10m"
@@ -46,11 +33,14 @@ func BenchmarkGetEventsInTimeRange(b *testing.B) {
 // Измеряет полный цикл сборки карточки
 func BenchmarkBuildAnswer(b *testing.B) {
 	const events_size = 1000000
-	events := GenerateBenchmarkEvents(events_size)
+	events := GenerateStructuredBenchmarkEvents(events_size)
 	index := BuildIndex(events)
 
 	// берём первое событие ка гланое (существование гарантированно)
-	mainEvent := &events[0]
+	mainEvent, isExist := index.GetEvent("evt_0000001")
+	if (!isExist) {
+		b.Fatalf("Главное событие evt_0000001 не найдено.")
+	}
 
 	links := []LinkInFile{}
 

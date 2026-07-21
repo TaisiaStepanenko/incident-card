@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+var eventCounter int
+
 func GenerateEvents(count int, scenario string, seed int64) ([]Event, error) {
 	if count <= 0 {
 		return nil, fmt.Errorf("Некорректное значение count: %d", count)
@@ -374,7 +376,8 @@ func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time) Event {
 	contentClass := contentClasses[rng.Intn(len(contentClasses))]
 	severity := severitis[rng.Intn(len(severitis))]
 	sizeBytes := int64(rng.Intn(1000000))                      // до 1 MБ
-	eventID := fmt.Sprintf("evt_%06d", 13000+rng.Intn(100000)) // начинаем с 13000, чтобы точно избежать повторного использования ID
+	eventCounter++
+	eventID := fmt.Sprintf("evt_%07d", eventCounter) // до 1 млрд уникальных значений 
 	fileID := fmt.Sprintf("file_%03d", rng.Intn(100)+1)
 
 	timestamp := baseTime.Add(time.Duration(rng.Intn(2*24*60*60)) * time.Second).Format(time.RFC3339) // 2*24*60*60 - количесвто секунд в 2 днях
@@ -391,6 +394,180 @@ func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time) Event {
 		FileName:       &fileName,
 		FileExt:        &fileExt,
 		ContentClasses: contentClass,
+		SizeBytes:      &sizeBytes,
+		Severity:       &severity,
+	}
+}
+
+// Создаёт события по событиям с повторяющимися связями и различными сценариями событий
+func GenerateStructuredBenchmarkEvents(count int) []Event {
+	rng := rand.New(rand.NewSource(42))
+	baseTime := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	events := make([]Event, count)
+
+	var event Event
+	// Определяем сценарий (external_send 60% от всех событий, usb-copy - 20%, cloud_upload - 20%)
+	for i := 0; i < count; i++ {
+		scenario := i % 5
+
+		switch scenario {
+		case 0, 1, 2:
+			event = GenerateExternalSendEvent(rng, baseTime, i)
+		case 3:
+			event = GenerateUSBCopyEvent(rng, baseTime, i)
+		case 4:
+			event = GenerateCloudUploadEvent(rng, baseTime, i)
+		}
+		events[i] = event
+	}
+	return events
+}
+
+// Создаёт событие по сценарию external_send
+func GenerateExternalSendEvent(rng *rand.Rand, baseTime time.Time, count int) Event {
+	users := []string{"user_015", "user_016", "user_017", "user_018", "user_019", "user_020"}
+	machines := []string{"pc_001", "pc_002", "pc_003", "pc_004", "pc_005"}
+	departments := []string{"sales", "hr", "finance", "dev", "legal", "support"}
+	actions := []string{"open_file", "create_archive", "email_send", "delete_file"}
+	channels := []string{"local", "email"}
+
+	// повторяющиеся id для связей 
+	userIdx := count % len(users)
+	fileIdx := (count / 2) % 10  // 10 уникальных значений, каждое из которых используется несколько раз
+	destIdx := count % 3 // 3 уникальных значений, каждое из которых используется несколько раз
+
+	user := users[userIdx]
+	machine := machines[count%len(machines)]
+	department := departments[count%len(departments)]
+	action := actions[rng.Intn(len(actions))]
+	channel := channels[rng.Intn(len(channels))]
+	fileID := fmt.Sprintf("file_%03d", 100+fileIdx)
+	fileName := fmt.Sprintf("client_data_%d.xlsx", fileIdx)
+	fileExt := "xlsx"
+	destID := fmt.Sprintf("dst_%03d", 400+destIdx)
+	destType := "external"
+	dest := fmt.Sprintf("external_email_%d@mail.com", destIdx)
+	contentClass := []string{"client_data", "personal_data"}
+	severity := "high"
+	sizeBytes := int64(102400 + rng.Intn(204800))    
+	
+	timestamp := baseTime.Add(time.Duration(rng.Intn(2*24*60*60)) *time.Second).Format(time.RFC3339)
+	eventID := fmt.Sprintf("evt_%07d", count+1)
+
+	return Event{
+		EventID:        eventID,
+		TimeStamp:      timestamp,
+		UserID:         user,
+		MachineID:      machine,
+		Department:     &department,
+		Action:         action,
+		Channel:        channel,
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
+		ContentClasses: contentClass,
+		DestinationID: 	&destID,
+		DestinationType: &destType,
+		Destination: 	&dest,
+		SizeBytes:      &sizeBytes,
+		Severity:       &severity,
+	}
+}
+
+// Создаёт событие по сценарию usb_copy
+func GenerateUSBCopyEvent(rng *rand.Rand, baseTime time.Time, count int) Event {
+	users := []string{"user_017", "user_018", "user_019", "user_020", "user_021"}
+	machines := []string{"pc_003", "pc_004", "pc_005"}
+	actions := []string{"copy_to_usb", "open_file", "delete_file"}
+	channels := []string{"local", "usb"}
+
+	// повторяющиеся id для связей 
+	userIdx := count % len(users)
+	fileIdx := (count / 3) % 8  // 8 уникальных значений, каждое из которых используется несколько раз
+	destIdx := count % 2 // 2 уникальных значений, каждое из которых используется несколько раз
+
+	user := users[userIdx]
+	machine := machines[count%len(machines)]
+	action := actions[rng.Intn(len(actions))]
+	channel := channels[rng.Intn(len(channels))]
+	fileID := fmt.Sprintf("file_%03d", 300+fileIdx)
+	fileName := fmt.Sprintf("report_%d.xlsx", fileIdx)
+	fileExt := "xlsx"
+	destID := fmt.Sprintf("dst_%03d", 300+destIdx)
+	destType := "usb"
+	dest := fmt.Sprintf("usb_device_%02d", destIdx+1)
+	contentClass := []string{"finance"}
+	severity := "high"
+	sizeBytes := int64(102400 + rng.Intn(102400))    
+	
+	timestamp := baseTime.Add(time.Duration(rng.Intn(2*24*60*60)) *time.Second).Format(time.RFC3339)
+	eventID := fmt.Sprintf("evt_%07d", count+1)
+
+	return Event{
+		EventID:        eventID,
+		TimeStamp:      timestamp,
+		UserID:         user,
+		MachineID:      machine,
+		Department:     strPtr("finance"),
+		Action:         action,
+		Channel:        channel,
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
+		ContentClasses: contentClass,
+		DestinationID: 	&destID,
+		DestinationType: &destType,
+		Destination: 	&dest,
+		SizeBytes:      &sizeBytes,
+		Severity:       &severity,
+	}
+}
+
+// Создаёт событие по сценарию cloud_upload
+func GenerateCloudUploadEvent(rng *rand.Rand, baseTime time.Time, count int) Event {
+	users := []string{"user_016", "user_017", "user_018", "user_019", "user_020"}
+	machines := []string{"pc_001", "pc_002", "pc_003"}
+	actions := []string{"cloud_upload", "create_archive", "delete_file"}
+	channels := []string{"local", "cloud"}
+
+	// повторяющиеся id для связей 
+	userIdx := count % len(users)
+	fileIdx := (count / 4) % 6  // 6 уникальных значений, каждое из которых используется несколько раз
+	destIdx := count % 2 // 2 уникальных значений, каждое из которых используется несколько раз
+
+	user := users[userIdx]
+	machine := machines[count%len(machines)]
+	action := actions[rng.Intn(len(actions))]
+	channel := channels[rng.Intn(len(channels))]
+	fileID := fmt.Sprintf("file_%03d", 500+fileIdx)
+	fileName := fmt.Sprintf("report_%d.zip", fileIdx)
+	fileExt := "zip"
+	destID := fmt.Sprintf("dst_%03d", 400+destIdx)
+	destType := "cloud"
+	dest := fmt.Sprintf("cloud_storage_%02d", destIdx+1)
+	contentClass := []string{"source_code"}
+	severity := "medium"
+	sizeBytes := int64(204800 + rng.Intn(4096000))    
+	
+	timestamp := baseTime.Add(time.Duration(rng.Intn(2*24*60*60)) *time.Second).Format(time.RFC3339)
+	eventID := fmt.Sprintf("evt_%07d", count+1)
+
+	return Event{
+		EventID:        eventID,
+		TimeStamp:      timestamp,
+		UserID:         user,
+		MachineID:      machine,
+		Department:     strPtr("dev"),
+		Action:         action,
+		Channel:        channel,
+		FileID:         &fileID,
+		FileName:       &fileName,
+		FileExt:        &fileExt,
+		ContentClasses: contentClass,
+		DestinationID: 	&destID,
+		DestinationType: &destType,
+		Destination: 	&dest,
 		SizeBytes:      &sizeBytes,
 		Severity:       &severity,
 	}
