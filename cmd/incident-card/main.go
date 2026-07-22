@@ -237,7 +237,7 @@ func main() {
 			}
 			fmt.Printf("DOT-граф записан в файл %s\n", *dotFile)
 		} else {
-			fmt.Println("Для сохранения создания DOT-графа необходимо передать --dot c дирректорией файла")
+			fmt.Println("Для сохранения создания DOT-графа необходимо передать --dot c директорией файла")
 		}
 	case "generate":
 		err := generateCommand.Parse(os.Args[2:])

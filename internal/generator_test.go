@@ -142,3 +142,17 @@ func TestGenerateUSBCopyRandomEvents(t *testing.T) {
 	assert.Equal(t, "evt_12347", events[2].EventID) // событие после
 	assert.Equal(t, "evt_12346", events[3].EventID) // связное событие того же пользователя
 }
+
+// Проверка уникальности вызовов
+func TestGenerateEventsUniqueIDs(t *testing.T) {
+	events, err := GenerateEvents(1000, "external_send", 42)
+	require.NoError(t, err)
+
+	ids := make(map[string]bool)
+	for _, event := range events {
+		if (ids[event.EventID]) {
+			t.Errorf("Дубликат event_id: %s", event.EventID)
+		}
+		ids[event.EventID] = true
+	}
+}

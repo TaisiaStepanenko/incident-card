@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-var eventCounter int
-
 func GenerateEvents(count int, scenario string, seed int64) ([]Event, error) {
 	if count <= 0 {
 		return nil, fmt.Errorf("Некорректное значение count: %d", count)
@@ -39,7 +37,7 @@ func GenerateEvents(count int, scenario string, seed int64) ([]Event, error) {
 func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
 
-	if count > 0 && count < 5 {
+	if (count < 5) {
 		return nil, fmt.Errorf("Для данного сценария (external_send) значение count должно быть не менее 5")
 	}
 
@@ -147,9 +145,9 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 		Severity:       strPtr("low"),
 	}
 
-	// Генерируем оставшиеся count-5 событий, начиная с 6, так как предыдущие 5 уже составлены
+	// Генерируем оставшиеся count-5 событий, начиная с индекса 5, так как предыдущие 5 уже составлены
 	for i := 5; i < count; i++ {
-		events[i] = GenerateRandomEvent(rng, baseTime)
+		events[i] = GenerateRandomEvent(rng, baseTime, i - 5) // индекс с 0
 	}
 	return events, nil
 }
@@ -157,7 +155,7 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
 
-	if count > 0 && count < 4 {
+	if (count < 4) {
 		return nil, fmt.Errorf("Для данного сценария (usb_copy) значение count должно быть не менее 4")
 	}
 
@@ -247,9 +245,9 @@ func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, er
 		Severity:       strPtr("low"),
 	}
 
-	// Генерируем оставшиеся count-4 событий, начиная с 5, так как предыдущие 4 уже составлены
+	// Генерируем оставшиеся count-4 событий, начиная с индекса 4, так как предыдущие 4 уже составлены
 	for i := 4; i < count; i++ {
-		events[i] = GenerateRandomEvent(rng, baseTime)
+		events[i] = GenerateRandomEvent(rng, baseTime, i - 4) // индекс с 0
 	}
 	return events, nil
 }
@@ -257,7 +255,7 @@ func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, er
 func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event, error) {
 	events := make([]Event, count)
 
-	if count > 0 && count < 4 {
+	if (count < 4) {
 		return nil, fmt.Errorf("Для данного сценария (cloud_upload) значение count должно быть не менее 4")
 	}
 
@@ -347,14 +345,14 @@ func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event
 		Severity:       strPtr("low"),
 	}
 
-	// Генерируем оставшиеся count-4 событий, начиная с 5, так как предыдущие 4 уже составлены
+	// Генерируем оставшиеся count-4 событий, начиная с индекса, так как предыдущие 4 уже составлены
 	for i := 4; i < count; i++ {
-		events[i] = GenerateRandomEvent(rng, baseTime)
+		events[i] = GenerateRandomEvent(rng, baseTime, i - 4) // индекс с 0
 	}
 	return events, nil
 }
 
-func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time) Event {
+func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time, index int) Event {
 	// Списки возможных значений
 	users := []string{"user_015", "user_016", "user_017", "user_018", "user_019", "user_020"}
 	machines := []string{"pc_001", "pc_002", "pc_003", "pc_004", "pc_005"}
@@ -376,8 +374,8 @@ func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time) Event {
 	contentClass := contentClasses[rng.Intn(len(contentClasses))]
 	severity := severitis[rng.Intn(len(severitis))]
 	sizeBytes := int64(rng.Intn(1000000))                      // до 1 MБ
-	eventCounter++
-	eventID := fmt.Sprintf("evt_%07d", eventCounter) // до 1 млрд уникальных значений 
+	// Используем переданных индекс с смещением 100000 для уникальности значений и детерминизма
+	eventID := fmt.Sprintf("evt_%07d", index+100000)
 	fileID := fmt.Sprintf("file_%03d", rng.Intn(100)+1)
 
 	timestamp := baseTime.Add(time.Duration(rng.Intn(2*24*60*60)) * time.Second).Format(time.RFC3339) // 2*24*60*60 - количесвто секунд в 2 днях

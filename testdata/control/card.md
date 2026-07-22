@@ -70,12 +70,12 @@ __ID инцидента:__ inc_001
 
 ## Ссылки на исходные события ##
 
-- ___evt_12345___: файл __./testdata/control/events.jsonl__ строка __1__
-- ___evt_12346___: файл __./testdata/control/events.jsonl__ строка __2__
-- ___evt_12347___: файл __./testdata/control/events.jsonl__ строка __3__
-- ___evt_12348___: файл __./testdata/control/events.jsonl__ строка __4__
 - ___evt_12350___: файл __./testdata/control/events.jsonl__ строка __6__
 - ___evt_12351___: файл __./testdata/control/events.jsonl__ строка __7__
 - ___evt_12352___: файл __./testdata/control/events.jsonl__ строка __8__
+- ___evt_12345___: файл __./testdata/control/events.jsonl__ строка __1__
+- ___evt_12346___: файл __./testdata/control/events.jsonl__ строка __2__
 - ___evt_12353___: файл __./testdata/control/events.jsonl__ строка __9__
+- ___evt_12347___: файл __./testdata/control/events.jsonl__ строка __3__
 - ___evt_12354___: файл __./testdata/control/events.jsonl__ строка __10__
+- ___evt_12359___: файл __./testdata/control/events.jsonl__ строка __15__

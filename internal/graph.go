@@ -63,7 +63,7 @@ func addEventEdges(graph *strings.Builder, event *Event, nodes, edges map[string
 
 	// узел и ребро пользователя
 	if event.UserID != "" {
-		userNode := "user_" + event.UserID
+		userNode := event.UserID
 		if !nodes[userNode] {
 			graph.WriteString(fmt.Sprintf(" \"%s\" [shape=ellipse, label=\"%s\"];\n", userNode, event.UserID))
 			nodes[userNode] = true
@@ -77,7 +77,7 @@ func addEventEdges(graph *strings.Builder, event *Event, nodes, edges map[string
 
 	// узел и ребро файла
 	if event.FileID != nil && *event.FileID != "" {
-		fileNode := "file_" + *event.FileID
+		fileNode := *event.FileID
 		if !nodes[fileNode] {
 			file := *event.FileID
 			if event.FileName != nil {
@@ -95,7 +95,7 @@ func addEventEdges(graph *strings.Builder, event *Event, nodes, edges map[string
 
 	// узел и ребро адресата
 	if event.DestinationID != nil && *event.DestinationID != "" {
-		destinationNode := "dest_" + *event.DestinationID
+		destinationNode := *event.DestinationID
 		if !nodes[destinationNode] {
 			destination := *event.DestinationID
 			if event.Destination != nil {

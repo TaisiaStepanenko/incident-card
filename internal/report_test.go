@@ -116,9 +116,8 @@ func TestBuildAnswer(t *testing.T) {
 	assert.Equal(t, expectedTimelineItems, realTimelineItems)
 
 	assert.Len(t, answer.LinksToTheOriginalEvents, len(realTimelineItems))
-	expectedItemsIds := []string{"evt_12345", "evt_12346", "evt_12347", "evt_12348", "evt_12349", "evt_12350"}
 	for i, link := range answer.LinksToTheOriginalEvents {
-		assert.Equal(t, expectedItemsIds[i], link.EventID)
+		assert.Equal(t, realTimelineItems[i], link.EventID)
 		assert.Equal(t, "eventsList.jsonl", link.FileName)
 	}
 
@@ -146,16 +145,7 @@ func TestBuildTimeLine(t *testing.T) {
 	fileEvents := []*Event{{EventID: "evt_12349", TimeStamp: "2026-06-16T10:14:00Z", UserID: "user_002", Action: "send"}}
 	destinationEvents := []*Event{{EventID: "evt_12350", TimeStamp: "2026-06-16T10:16:00Z", UserID: "user_003", Action: "close"}}
 
-	links := []LinkInFile{
-		{EventID: "evt_12345", FileName: "eventsList.jsonl", FileLine: 1},
-		{EventID: "evt_12346", FileName: "eventsList.jsonl", FileLine: 2},
-		{EventID: "evt_12347", FileName: "eventsList.jsonl", FileLine: 3},
-		{EventID: "evt_12348", FileName: "eventsList.jsonl", FileLine: 4},
-		{EventID: "evt_12349", FileName: "eventsList.jsonl", FileLine: 5},
-		{EventID: "evt_12350", FileName: "eventsList.jsonl", FileLine: 6},
-	}
-
-	timelineItems, _ := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents, links)
+	timelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents)
 
 	assert.Len(t, timelineItems, 6)
 
@@ -170,15 +160,13 @@ func TestBuildTimeLine(t *testing.T) {
 	userEvents = []*Event{{EventID: "evt_12351", TimeStamp: "2026-06-16T10:14:00Z", UserID: "user_005", Action: "open"}}
 	fileEvents = []*Event{{EventID: "evt_12351", TimeStamp: "2026-06-16T10:14:00Z", UserID: "user_005", Action: "open"}}
 
-	timelineItems, _ = BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents, links)
+	timelineItems = BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents)
 
 	assert.Equal(t, RoleSameFile, timelineItems[1].Role)
 
 	// Только с главным событием
-	links = []LinkInFile{}
-	timelineItems, linkstimelineItems := BuildTimeline(mainEvent, nil, nil, nil, nil, nil, links)
+	timelineItems = BuildTimeline(mainEvent, nil, nil, nil, nil, nil)
 	assert.Len(t, timelineItems, 1)
-	assert.Len(t, linkstimelineItems, 0)
 
 	// Пустые поля
 	eventWithoutFields := &Event{
@@ -188,7 +176,7 @@ func TestBuildTimeLine(t *testing.T) {
 		Action:    "open",
 	}
 
-	timelineItems, _ = BuildTimeline(mainEvent, []*Event{eventWithoutFields}, nil, nil, nil, nil, []LinkInFile{})
+	timelineItems = BuildTimeline(mainEvent, []*Event{eventWithoutFields}, nil, nil, nil, nil)
 	assert.Len(t, timelineItems, 2)
 
 	// проверяем, что поля пустые

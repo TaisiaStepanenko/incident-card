@@ -133,29 +133,29 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 	assert.Contains(t, dot, `"evt_12346" [label="evt_12346\nopen_file\n2026-06-16T10:23:00Z"];`)
 
 	// Узел пользователя
-	assert.Contains(t, dot, `"user_user_017" [shape=ellipse, label="user_017"];`)
+	assert.Contains(t, dot, `"user_017" [shape=ellipse, label="user_017"];`)
 
 	// Ребра от событий к пользователю "performed by"
-	assert.Contains(t, dot, `"evt_12345" -> "user_user_017" [label="performed by"];`)
-	assert.Contains(t, dot, `"evt_12338" -> "user_user_017" [label="performed by"];`)
-	assert.Contains(t, dot, `"evt_12347" -> "user_user_017" [label="performed by"];`)
-	assert.Contains(t, dot, `"evt_12346" -> "user_user_017" [label="performed by"];`)
+	assert.Contains(t, dot, `"evt_12345" -> "user_017" [label="performed by"];`)
+	assert.Contains(t, dot, `"evt_12338" -> "user_017" [label="performed by"];`)
+	assert.Contains(t, dot, `"evt_12347" -> "user_017" [label="performed by"];`)
+	assert.Contains(t, dot, `"evt_12346" -> "user_017" [label="performed by"];`)
 
 	// Узел файла
-	assert.Contains(t, dot, `"file_file_001" [shape=note, label="file_001\nfile.xlsx"];`)
-	assert.Contains(t, dot, `"file_file_002" [shape=note, label="file_002\nfile.pdf"];`)
+	assert.Contains(t, dot, `"file_001" [shape=note, label="file_001\nfile.xlsx"];`)
+	assert.Contains(t, dot, `"file_002" [shape=note, label="file_002\nfile.pdf"];`)
 
 	// Ребра от событий к файлу "uses file"
-	assert.Contains(t, dot, `"evt_12345" -> "file_file_001" [label="uses file"];`)
-	assert.Contains(t, dot, `"evt_12338" -> "file_file_001" [label="uses file"];`)
-	assert.Contains(t, dot, `"evt_12347" -> "file_file_001" [label="uses file"];`)
-	assert.Contains(t, dot, `"evt_12346" -> "file_file_002" [label="uses file"];`)
+	assert.Contains(t, dot, `"evt_12345" -> "file_001" [label="uses file"];`)
+	assert.Contains(t, dot, `"evt_12338" -> "file_001" [label="uses file"];`)
+	assert.Contains(t, dot, `"evt_12347" -> "file_001" [label="uses file"];`)
+	assert.Contains(t, dot, `"evt_12346" -> "file_002" [label="uses file"];`)
 
 	// Узел адресата
-	assert.Contains(t, dot, `"dest_dst_010" [shape=cylinder, label="dst_010\nusb_001"];`)
+	assert.Contains(t, dot, `"dst_010" [shape=cylinder, label="dst_010\nusb_001"];`)
 
 	// Ребра от событий к адресату "sends to"
-	assert.Contains(t, dot, `"evt_12345" -> "dest_dst_010" [label="sends to"];`)
+	assert.Contains(t, dot, `"evt_12345" -> "dst_010" [label="sends to"];`)
 
 }
 
@@ -244,7 +244,7 @@ func TestGenerateDOTGraph_TimelineEventNotFound(t *testing.T) {
 
 	assert.Contains(t, dot, `"evt_12346" [label="evt_12346\nopen_file\n2026-06-16T10:10:00Z"];`)
 
-	assert.Contains(t, dot, `"evt_12345" -> "user_user_017" [label="performed by"];`)
+	assert.Contains(t, dot, `"evt_12345" -> "user_017" [label="performed by"];`)
 
 	// Проверяем, что нет рёбер к файлу или адресату для отсутствующего события
 	assert.NotContains(t, dot, `"evt_12346" -> "file_`)

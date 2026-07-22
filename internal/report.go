@@ -63,11 +63,24 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 	fileEvents = MakeLimitSlice(fileEvents, limit)
 	destinationEvents = MakeLimitSlice(destinationEvents, limit)
 
-	timelineItems, linksTotimelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents, eventsLink)
+	timelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents)
 
 	if len(timelineItems) > limit {
 		timelineItems = timelineItems[:limit]
-		linksTotimelineItems = linksTotimelineItems[:limit]
+	}
+
+	// Строим ссылки на исходные события строго из обрезанного таймлайна
+	linkMap := make(map[string]LinkInFile)
+	for _, link := range eventsLink {
+		linkMap[link.EventID] = link
+	}
+
+	linksTotimeline := make([]LinkInFile, 0, len(timelineItems))
+	for _, item := range timelineItems {
+		link, isExist := linkMap[item.EventID]
+		if (isExist) {
+			linksTotimeline = append(linksTotimeline, link)
+		}
 	}
 
 	summary := BuildSummary(mainEvent)
@@ -94,12 +107,12 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 		SameDestinationEvents:    destinationEventsIds,
 		TimeLine:                 timelineItems,
 		SuspiciousFactors:        suspicious,
-		LinksToTheOriginalEvents: linksTotimelineItems,
+		LinksToTheOriginalEvents: linksTotimeline,
 	}, nil
 
 }
 
-func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents []*Event, eventsLink []LinkInFile) ([]TimelineItem, []LinkInFile) {
+func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents []*Event) []TimelineItem {
 
 	roleMap := make(map[string]Role) // соответствие события и его роли
 
@@ -153,7 +166,6 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 
 	// собираем срез []TimelineItem
 	timelineItems := make([]TimelineItem, 0, len(allUniqueEventsMap))
-	linksTotimelineItems := make([]LinkInFile, 0, len(allUniqueEventsMap))
 	for _, event := range allUniqueEventsMap {
 		var fileName, destination, severity string
 		if event.FileName != nil {
@@ -176,16 +188,6 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 			Destination: destination,
 			Severity:    severity,
 		})
-
-		for _, link := range eventsLink {
-			if link.EventID == event.EventID {
-				linksTotimelineItems = append(linksTotimelineItems, LinkInFile{
-					EventID:  event.EventID,
-					FileName: link.FileName,
-					FileLine: link.FileLine,
-				})
-			}
-		}
 	}
 
 	// Сортировка по времени, при равенстве времени сортируем по event_id
@@ -198,12 +200,7 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 		return time_i.Before(time_j)
 	})
 
-	// Сортировка ссылок по event_id
-	sort.Slice(linksTotimelineItems, func(i, j int) bool {
-		return linksTotimelineItems[i].EventID < linksTotimelineItems[j].EventID
-	})
-
-	return timelineItems, linksTotimelineItems
+	return timelineItems
 
 }
 
