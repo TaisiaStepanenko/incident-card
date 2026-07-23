@@ -450,5 +450,7 @@ dot -Tpng graph.dot -o graph.png
 |`BuildAnswer`| 121 мс | 14 | 0.9 MБ | 104 |
 |`BuildTimeline`| 4807 мс | 1 | 405 MБ | 16382 |
 |`CheckRules`| 620 нс | 1807767 | 192 Б | 2 |
+|`GenerateMarkdownCard`| 147395 нс | 7675 | 67448 Б | 1331 |
+|`GenerateDOTGraph`| 223012 нс | 8946 | 117945 Б | 1408 |
 
 Потребление памяти процесса не превышает 768 MБ, что соответствует требованиям.

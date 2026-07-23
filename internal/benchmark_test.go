@@ -181,3 +181,73 @@ func BenchmarkCheckRules(b *testing.B) {
 		CheckRules(event, rules)
 	}
 }
+
+// Построение Markdown отчёта
+func BenchmarkGenerateMarkdownCard(b *testing.B) {
+	const events_size = 1000000
+	events := GenerateStructuredBenchmarkEvents(events_size)
+	index := BuildIndex(events)
+	// берём первое событие ка гланое (существование гарантированно)
+	mainEvent, isExist := index.GetEvent("evt_0000001")
+	if (!isExist) {
+		b.Fatalf("Главное событие evt_0000001 не найдено.")
+	}
+
+	flagTrue := true
+	req := Request{
+		IncidentID: "inc_001",
+		MainEventID: mainEvent.EventID,
+		WindowBefore: "30m",
+		WindowAfter: "10m",
+		IncludeSameUser: &flagTrue,
+		IncludeSameFile: &flagTrue,
+		IncludeSameDestination: &flagTrue,
+		MaxEventsPerSection: 50,
+	}
+
+	answer, err := BuildAnswer(mainEvent, index, events, []LinkInFile{}, req, []Rule{})
+	if (err != nil) {
+		b.Fatalf("Ошибка: %v", err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i:=0; i<b.N; i++ {
+		GenerateMarkdownCard(mainEvent, &answer, index, 50)
+	}
+}
+
+// Построение JSON отчёта
+func BenchmarkGenerateDOTGraph(b *testing.B) {
+	const events_size = 1000000
+	events := GenerateStructuredBenchmarkEvents(events_size)
+	index := BuildIndex(events)
+	// берём первое событие ка гланое (существование гарантированно)
+	mainEvent, isExist := index.GetEvent("evt_0000001")
+	if (!isExist) {
+		b.Fatalf("Главное событие evt_0000001 не найдено.")
+	}
+
+	flagTrue := true
+	req := Request{
+		IncidentID: "inc_001",
+		MainEventID: mainEvent.EventID,
+		WindowBefore: "30m",
+		WindowAfter: "10m",
+		IncludeSameUser: &flagTrue,
+		IncludeSameFile: &flagTrue,
+		IncludeSameDestination: &flagTrue,
+		MaxEventsPerSection: 50,
+	}
+
+	answer, err := BuildAnswer(mainEvent, index, events, []LinkInFile{}, req, []Rule{})
+	if (err != nil) {
+		b.Fatalf("Ошибка: %v", err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i:=0; i<b.N; i++ {
+		GenerateDOTGraph(&answer, index)
+	}
+}
