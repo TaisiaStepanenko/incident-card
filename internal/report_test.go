@@ -320,7 +320,7 @@ func TestGenerateMarkdownCard(t *testing.T) {
 	assert.Contains(t, markdownCard, "## События с тем же файлом ##\n\n- evt_12346\n")
 	assert.Contains(t, markdownCard, "## События с тем же адресатом ##\n\n- evt_12348\n")
 	assert.Contains(t, markdownCard, "## Временная шкала ##\n\n")
-	assert.Contains(t, markdownCard, "Количество записей превысило максимально возможное значение. В таблице приведены первые 2 событий из 4.\n\n")
+	assert.Contains(t, markdownCard, "Количество записей превысило максимально возможное значение (truncated). В таблице приведены первые 2 событий из 4.\n\n")
 	assert.Contains(t, markdownCard, "| Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |\n")
 	assert.Contains(t, markdownCard, "evt_12346")
 	assert.Contains(t, markdownCard, "evt_12345")

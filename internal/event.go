@@ -41,8 +41,11 @@ type Answer struct {
 	Summary                  string         `json:"summary"`
 	ContextBefore            []string       `json:"context_before,omitempty"`
 	ContextAfter             []string       `json:"context_after,omitempty"`
+	// SameUserEvents содержит собятия с тем же пользователем same_user
 	SameUserEvents           []string       `json:"same_user_events,omitempty"`
+	// SameFileEvents содержит собятия с тем же файлом same_file
 	SameFileEvents           []string       `json:"same_file_events,omitempty"`
+	// SameDestinationEvents содержит собятия с тем же адресатом same_destination
 	SameDestinationEvents    []string       `json:"same_destination_events,omitempty"`
 	TimeLine                 []TimelineItem `json:"timeline"`
 	SuspiciousFactors        []string       `json:"suspicious_factors,omitempty"`

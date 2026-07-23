@@ -65,10 +65,6 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 
 	timelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents)
 
-	if len(timelineItems) > limit {
-		timelineItems = timelineItems[:limit]
-	}
-
 	// Строим ссылки на исходные события строго из обрезанного таймлайна
 	linkMap := make(map[string]LinkInFile)
 	for _, link := range eventsLink {
@@ -272,7 +268,7 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEven
 		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
 	} else {
 		if len(answer.TimeLine) > maxEventsPerSection {
-			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение. В таблице приведены первые %d событий из %d.\n\n", maxEventsPerSection, len(answer.TimeLine)))
+			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение (truncated). В таблице приведены первые %d событий.\n\n", maxEventsPerSection))
 		}
 		markdownnContent.WriteString("| Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |\n")
 		markdownnContent.WriteString("|:---|:---|:---|:---|:---|:---|:---:|:---:|\n")

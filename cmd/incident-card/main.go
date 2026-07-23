@@ -65,6 +65,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Ошибка при чтении файла запроса %s: %v\n", *requestFile, err)
 				os.Exit(1)
 			}
+			reqData = TrimBOM(reqData)
 			err = json.Unmarshal(reqData, &req)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Ошибка парсинга JSON-запроса: %v\n", err)
@@ -287,4 +288,12 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+
+func TrimBOM(data []byte) []byte {
+	if (len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) {
+		return data[3:]
+	}
+	return data
 }
