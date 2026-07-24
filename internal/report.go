@@ -64,6 +64,38 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 	destinationEvents = MakeLimitSlice(destinationEvents, limit)
 
 	timelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents)
+	totalTimelineEvents := len(timeEvents)
+
+	if (len(timelineItems) > limit) {
+		// Проверяем, есть ли главное событие в первых limit элементах
+		mainEventIncluded := false
+		var mainIndex int
+		for i := 0; i < limit; i++ {
+			if (timelineItems[i].EventID == mainEvent.EventID) {
+				mainEventIncluded = true
+				mainIndex = i
+				break
+			}
+		}
+
+		// Если главное событие не входит в первые limit, ищем его индекс в оставшейся части
+		if (!mainEventIncluded) {
+			for i := limit; i < len(timelineItems); i++ {
+				if (timelineItems[i].EventID == mainEvent.EventID) {
+					mainIndex = i
+					break
+				}
+			}
+
+			// Если главное событие найдено, меняем его с последним элементом среза
+			if (mainIndex >= limit) {
+				timelineItems[limit-1], timelineItems[mainIndex] = timelineItems[mainIndex], timelineItems[limit-1] 
+			}
+		}
+
+		// Обрезаем до limit
+		timelineItems = timelineItems[:limit]
+	}
 
 	// Строим ссылки на исходные события строго из обрезанного таймлайна
 	linkMap := make(map[string]LinkInFile)
@@ -102,6 +134,7 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 		SameFileEvents:           fileEventsIds,
 		SameDestinationEvents:    destinationEventsIds,
 		TimeLine:                 timelineItems,
+		TotalTimelineEvents:	  totalTimelineEvents,
 		SuspiciousFactors:        suspicious,
 		LinksToTheOriginalEvents: linksTotimeline,
 	}, nil
@@ -267,8 +300,8 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEven
 	if len(answer.TimeLine) == 0 {
 		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
 	} else {
-		if len(answer.TimeLine) > maxEventsPerSection {
-			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение (truncated). В таблице приведены первые %d событий.\n\n", maxEventsPerSection))
+		if answer.TotalTimelineEvents > maxEventsPerSection {
+			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение (truncated). В таблице приведены первые %d событий из %d.\n\n", maxEventsPerSection, answer.TotalTimelineEvents))
 		}
 		markdownnContent.WriteString("| Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |\n")
 		markdownnContent.WriteString("|:---|:---|:---|:---|:---|:---|:---:|:---:|\n")

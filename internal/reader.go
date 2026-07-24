@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 )
 
 // Чтение событий из JSONL-файла
@@ -24,17 +26,21 @@ func ReadEvents(filePath string) ([]Event, []LinkInFile, error) {
 
 	buffer := make([]byte, 0, maxLineLength+maxLineLength)
 	scanner.Buffer(buffer, maxLineLength+maxLineLength)
+	existId := make(map[string]bool)
 
 	for scanner.Scan() {
 		lineNumber++
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue // пропускаем пустые строки
 		}
 
+		if (lineNumber == 1 && strings.HasPrefix(line, "\xEF\xBB\xBF")) {
+			line = strings.TrimPrefix(line, "\xEF\xBB\xBF")
+		}
+
 		if len(line) > maxLineLength {
-			fmt.Fprintf(os.Stderr, "Строка %d слишком длинная\n", lineNumber) // проверяем слишком длинные значения
-			continue
+			return nil, nil, fmt.Errorf("%s:%d: cтрока слишком длинная\n", filePath, lineNumber) // проверяем слишком длинные значения
 		}
 
 		var newEvent Event
@@ -42,9 +48,30 @@ func ReadEvents(filePath string) ([]Event, []LinkInFile, error) {
 		err := json.Unmarshal([]byte(line), &newEvent) // декодирование JSON
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка парсинга строки %d: %v\n", lineNumber, err)
-			continue
+			return nil, nil, fmt.Errorf("%s:%d: Ошибка парсинга строки: %v\n", filePath, lineNumber, err)
 		}
+
+		// Проверка обязательных полей
+		if (newEvent.EventID == "" || newEvent.TimeStamp == "" || newEvent.UserID == "" || newEvent.MachineID == "" || newEvent.Action == "" || newEvent.Channel == "") {
+			return nil, nil, fmt.Errorf("%s:%d: Пропущено обязательное поле\n", filePath, lineNumber)
+		}
+
+		// Проверка формата времени RFC3339
+		_, err = time.Parse(time.RFC3339, newEvent.TimeStamp)
+		if (err != nil) {
+			return nil, nil, fmt.Errorf("%s:%d: Неверный формат поля timestamp: %w\n", filePath, lineNumber, err)
+		}
+
+		// Проверка отрицаткльного размера
+		if (newEvent.SizeBytes != nil && *newEvent.SizeBytes < 0) {
+			return nil, nil, fmt.Errorf("%s:%d: Отрицательное значение поля size_bytes\n", filePath, lineNumber)
+		}
+
+		// Проверка дубликатов event_id
+		if (existId[newEvent.EventID]) {
+			return nil, nil, fmt.Errorf("%s:%d: Дублирование значения event_id %s\n", filePath, lineNumber, newEvent.EventID)
+		}
+		existId[newEvent.EventID] = true
 
 		// Добавляем новую ссылку на событие
 		eventsLinkInFile = append(eventsLinkInFile, LinkInFile{
@@ -61,6 +88,6 @@ func ReadEvents(filePath string) ([]Event, []LinkInFile, error) {
 		return nil, nil, fmt.Errorf("Ошибка при чтении файла %s: %w", filePath, err) // ошибка при сканировнии
 	}
 
-	return events, eventsLinkInFile, err
+	return events, eventsLinkInFile, nil
 
 }

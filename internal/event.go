@@ -48,6 +48,8 @@ type Answer struct {
 	// SameDestinationEvents содержит собятия с тем же адресатом same_destination
 	SameDestinationEvents    []string       `json:"same_destination_events,omitempty"`
 	TimeLine                 []TimelineItem `json:"timeline"`
+	// TotalTimelineEvents общее количество событий до обрезания (не сериализируется)
+	TotalTimelineEvents		 int 			`json:"-"`
 	SuspiciousFactors        []string       `json:"suspicious_factors,omitempty"`
 	LinksToTheOriginalEvents []LinkInFile   `json:"links_to_original_events,omitempty"`
 }

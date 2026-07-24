@@ -297,6 +297,7 @@ func TestGenerateMarkdownCard(t *testing.T) {
 			{Timestamp: "2026-06-16T10:20:00Z", EventID: "evt_12347", Role: RoleAfterContext, UserID: "user_001", Action: "delete", FileName: "file.txt", Destination: "", Severity: "medium"},
 			{Timestamp: "2026-06-16T10:14:00Z", EventID: "evt_12348", Role: RoleSameDestination, UserID: "user_002", Action: "send", FileName: "file.txt", Destination: "dst_002", Severity: "medium"},
 		},
+		TotalTimelineEvents: 4,
 		LinksToTheOriginalEvents: []LinkInFile{
 			{EventID: "evt_12345", FileName: "eventsList.jsonl", FileLine: 1},
 			{EventID: "evt_12346", FileName: "eventsList.jsonl", FileLine: 2},

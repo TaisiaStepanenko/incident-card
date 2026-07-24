@@ -114,12 +114,9 @@ func main() {
 			limit = 50
 		}
 
-		if (limit < 1) {
-			limit = 1
-		}
-		if (limit > 10000) {
-			limit = 10000
-			fmt.Printf("max_events_per_section ограничен до 10000\n")
+		if (limit < 1 || limit > 1000) {
+			fmt.Fprintf(os.Stderr, "max_events_per_section должен быть в диапозоне [1, 1000]\n")
+			os.Exit(1)
 		}
 
 		events, eventsLink, err := internal.ReadEvents(*eventsFile)
