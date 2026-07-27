@@ -142,3 +142,53 @@ func TestGenerateUSBCopyRandomEvents(t *testing.T) {
 	assert.Equal(t, "evt_12347", events[2].EventID) // событие после
 	assert.Equal(t, "evt_12346", events[3].EventID) // связное событие того же пользователя
 }
+
+// Проверка уникальности вызовов
+func TestGenerateEventsUniqueIDs(t *testing.T) {
+	events, err := GenerateEvents(1000, "external_send", 42)
+	require.NoError(t, err)
+
+	ids := make(map[string]bool)
+	for _, event := range events {
+		if (ids[event.EventID]) {
+			t.Errorf("Дубликат event_id: %s", event.EventID)
+		}
+		ids[event.EventID] = true
+	}
+}
+
+func TestGenerateStructuredBenchmarkEvents(t *testing.T) {
+	count := 10
+	events := GenerateStructuredBenchmarkEvents(count)
+
+	if (len(events) != count) {
+		t.Errorf("Ожидалось %d событий, получено %d", count, len(events))
+	}
+
+	// Проверяем уникальность id
+	ids := make(map[string]bool)
+	for _, event := range events {
+		if (ids[event.EventID]) {
+			t.Errorf("Обнаружен дубликат ID: %s", event.EventID)
+		}
+
+		ids[event.EventID] = true
+		// Проверяем, что обязательные поля заполнены
+		if (event.EventID == "") {
+			t.Errorf("Не задан event_id")
+		}
+		if (event.TimeStamp == "") {
+			t.Errorf("Не задан timestamp")
+		}
+		if (event.UserID == "") {
+			t.Errorf("Не задан user_id")
+		}
+		if (event.Action == "") {
+			t.Errorf("Не задан action")
+		}
+		if (event.Channel == "") {
+			t.Errorf("Не задан channel")
+		}
+	}
+}
+

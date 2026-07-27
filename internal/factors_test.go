@@ -270,10 +270,12 @@ func TestCheckCondition(t *testing.T) {
 	// Equels
 	assert.True(t, CheckCondition(event, Condition{Field: "size_bytes", Equals: strPtr("204800")}))
 	assert.False(t, CheckCondition(event, Condition{Field: "size_bytes", Equals: strPtr("100")}))
+	assert.False(t, CheckCondition(event, Condition{Field: "size_bytes", Equals: strPtr("str")}))
 
 	// In
 	assert.True(t, CheckCondition(event, Condition{Field: "size_bytes", In: []string{"100", "204800"}}))
 	assert.False(t, CheckCondition(event, Condition{Field: "size_bytes", In: []string{"505", "102400"}}))
+	assert.False(t, CheckCondition(event, Condition{Field: "size_bytes", In: []string{"invalid", "123"}}))
 
 	// Exists
 	assert.True(t, CheckCondition(event, Condition{Field: "size_bytes", Exists: &true_flag}))

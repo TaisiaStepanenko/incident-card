@@ -34,7 +34,7 @@ func TestReadEventsSuccess(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	events, eventLinks, err := ReadEvents(testFile)
+	events, index, err := ReadEvents(testFile)
 	require.NoError(t, err)
 	// Проверяем корректность считанных событий
 	assert.Len(t, events, 2)
@@ -42,13 +42,12 @@ func TestReadEventsSuccess(t *testing.T) {
 	assert.Equal(t, "evt_12346", events[1].EventID)
 
 	// Проверяем корректность записанных ссылок
-	assert.Equal(t, "evt_12345", eventLinks[0].EventID)
-	assert.Equal(t, testFile, eventLinks[0].FileName)
-	assert.Equal(t, 1, eventLinks[0].FileLine)
+	assert.Equal(t, 1, events[0].LineNumber)
+	assert.Equal(t, 2, events[1].LineNumber)
 
-	assert.Equal(t, "evt_12346", eventLinks[1].EventID)
-	assert.Equal(t, testFile, eventLinks[1].FileName)
-	assert.Equal(t, 2, eventLinks[1].FileLine)
+	event, isExist := index.GetEvent("evt_12345")
+	assert.True(t, isExist)
+	assert.Equal(t, 1, event.LineNumber)
 }
 
 // Проверка на корректную обработку пустых строк в файле
@@ -60,20 +59,23 @@ func TestReadEventsEmptyLines(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	events, eventLinks, err := ReadEvents(testFile)
+	events, index, err := ReadEvents(testFile)
 	require.NoError(t, err)
 	assert.Len(t, events, 2)
 	assert.Equal(t, "evt_12345", events[0].EventID)
 	assert.Equal(t, "evt_12346", events[1].EventID)
 
-	assert.Len(t, eventLinks, 2)
-	assert.Equal(t, "evt_12345", eventLinks[0].EventID)
-	assert.Equal(t, testFile, eventLinks[0].FileName)
-	assert.Equal(t, 1, eventLinks[0].FileLine)
+	// Проверяем корректность записанных ссылок
+	assert.Equal(t, 1, events[0].LineNumber)
+	assert.Equal(t, 3, events[1].LineNumber)
 
-	assert.Equal(t, "evt_12346", eventLinks[1].EventID)
-	assert.Equal(t, testFile, eventLinks[1].FileName)
-	assert.Equal(t, 3, eventLinks[1].FileLine)
+	event, isExist := index.GetEvent("evt_12345")
+	assert.True(t, isExist)
+	assert.Equal(t, 1, event.LineNumber)
+
+	event, isExist = index.GetEvent("evt_12346")
+	assert.True(t, isExist)
+	assert.Equal(t, 3, event.LineNumber)
 }
 
 // Проверка на корректную обработку слишком длинных строк в файле
@@ -89,48 +91,68 @@ func TestReadEventsLongLines(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	events, eventLinks, err := ReadEvents(testFile)
-	require.NoError(t, err)
-	assert.Len(t, events, 2)
-	assert.Equal(t, "evt_12345", events[0].EventID)
-	assert.Equal(t, "evt_12346", events[1].EventID)
-
-	assert.Len(t, eventLinks, 2)
-	assert.Equal(t, "evt_12345", eventLinks[0].EventID)
-	assert.Equal(t, testFile, eventLinks[0].FileName)
-	assert.Equal(t, 1, eventLinks[0].FileLine)
-
-	assert.Equal(t, "evt_12346", eventLinks[1].EventID)
-	assert.Equal(t, testFile, eventLinks[1].FileName)
-	assert.Equal(t, 2, eventLinks[1].FileLine)
+	_, _, err := ReadEvents(testFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cтрока слишком длинная")
 }
 
 // Проверка на корректную обработку неккоректных объектов JSON в файле
 func TestReadEventsInvalidJSON(t *testing.T) {
-	longLine := make([]byte, 10*1024*1024+1)
-	for i := range longLine {
-		longLine[i] = 'i'
-	}
-
 	content := `{json}
 {"event_id":"evt_12345","timestamp":"2026-06-16T10:00:00Z","user_id":"user_017","machine_id":"pc_003","action":"open","channel":"local"}
-{"event_id":"evt_12346","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}` + "\n" + string(longLine)
-
+{"event_id":"evt_12346","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}`
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	events, eventLinks, err := ReadEvents(testFile)
-	require.NoError(t, err)
-	assert.Len(t, events, 2)
-	assert.Equal(t, "evt_12345", events[0].EventID)
-	assert.Equal(t, "evt_12346", events[1].EventID)
+	_, _, err := ReadEvents(testFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Ошибка парсинга строки:")
+}
 
-	assert.Len(t, eventLinks, 2)
-	assert.Equal(t, "evt_12345", eventLinks[0].EventID)
-	assert.Equal(t, testFile, eventLinks[0].FileName)
-	assert.Equal(t, 2, eventLinks[0].FileLine)
+// Проверка на корректную обработку объектов JSON с пропущенными полями
+func TestReadEventsMissingRequiredFields(t *testing.T) {
+	content := `{"event_id":"evt_12345","user_id":"user_017","machine_id":"pc_003","action":"open","channel":"local"}
+{"event_id":"evt_12346","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}`
+	testFile := createTestFile(t, content)
+	defer os.Remove(testFile)
 
-	assert.Equal(t, "evt_12346", eventLinks[1].EventID)
-	assert.Equal(t, testFile, eventLinks[1].FileName)
-	assert.Equal(t, 3, eventLinks[1].FileLine)
+	_, _, err := ReadEvents(testFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Пропущено обязательное поле")
+}
+
+// Проверка на корректную обработку объектов JSON с неправильным форматом timestamp (должен быть RFC3339)
+func TestReadEventsInvalidTimestamp(t *testing.T) {
+	content := `{"event_id":"evt_12345","timestamp":"2026-06-16T10:05:00","user_id":"user_017","machine_id":"pc_003","action":"open","channel":"local"}
+{"event_id":"evt_12346","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}`
+	testFile := createTestFile(t, content)
+	defer os.Remove(testFile)
+
+	_, _, err := ReadEvents(testFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Неверный формат поля timestamp")
+}
+
+// Проверка на корректную обработку объектов JSON с отрицательным size_bytes
+func TestReadEventsNegativeSizeBytes(t *testing.T) {
+	content := `{"event_id":"evt_12345","timestamp":"2026-06-16T10:05:00Z","user_id":"user_017","machine_id":"pc_003","action":"open","channel":"local","size_bytes":-1}
+{"event_id":"evt_12346","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}`
+	testFile := createTestFile(t, content)
+	defer os.Remove(testFile)
+
+	_, _, err := ReadEvents(testFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Отрицательное значение поля size_bytes")
+}
+
+// Проверка на корректную обработку объектов JSON с дублированием event_id
+func TestReadEventsDuplicateEventID(t *testing.T) {
+	content := `{"event_id":"evt_12345","timestamp":"2026-06-16T10:05:00Z","user_id":"user_017","machine_id":"pc_003","action":"open","channel":"local"}
+{"event_id":"evt_12345","timestamp":"2026-06-16T10:05:00Z","user_id":"user_018","machine_id":"pc_004","action":"email_send","channel":"email"}`
+	testFile := createTestFile(t, content)
+	defer os.Remove(testFile)
+
+	_, _, err := ReadEvents(testFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Дублирование значения event_id")
 }

@@ -14,8 +14,12 @@ func MakeLimitSlice(events []*Event, limit int) []*Event {
 	return events
 }
 
-func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []LinkInFile, req Request, rules []Rule) (Answer, error) {
+func BuildAnswer(mainEvent *Event, index Index, events []Event, fileName string, req Request, rules []Rule) (Answer, error) {
 
+	if (req.MaxEventsPerSection < 1 || req.MaxEventsPerSection > 1000) {
+		return Answer{}, fmt.Errorf("max_events_per_section должен быть в диапозоне [1, 1000]")
+	}
+	
 	// Сбор событий по временному контексту
 	timeEvents, err := GetEventsInTimeRange(events, mainEvent.TimeStamp, req.WindowBefore, req.WindowAfter)
 	if err != nil {
@@ -57,20 +61,60 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 		}
 	}
 
+	timelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents)
+	totalTimelineEvents := len(timelineItems) 	// полное количество до учечения
+
+	if (len(timelineItems) > limit) {
+		// Проверяем, есть ли главное событие в первых limit элементах
+		mainEventIncluded := false
+		var mainIndex int
+		for i := 0; i < limit; i++ {
+			if (timelineItems[i].EventID == mainEvent.EventID) {
+				mainEventIncluded = true
+				mainIndex = i
+				break
+			}
+		}
+
+		// Если главное событие не входит в первые limit, ищем его индекс в оставшейся части
+		if (!mainEventIncluded) {
+			for i := limit; i < len(timelineItems); i++ {
+				if (timelineItems[i].EventID == mainEvent.EventID) {
+					mainIndex = i
+					break
+				}
+			}
+
+			// Если главное событие найдено, меняем его с последним элементом среза
+			if (mainIndex >= limit) {
+				timelineItems[limit-1], timelineItems[mainIndex] = timelineItems[mainIndex], timelineItems[limit-1] 
+			}
+		}
+
+		// Обрезаем до limit
+		timelineItems = timelineItems[:limit]
+	}
+
+
+	linksTotimeline := make([]LinkInFile, 0, len(timelineItems))
+	for _, item := range timelineItems {
+		event, isExist := index.GetEvent(item.EventID)
+		if (isExist && event.LineNumber > 0) {
+			linksTotimeline = append(linksTotimeline, LinkInFile{
+				EventID: item.EventID,
+				FileName: fileName,
+				FileLine: event.LineNumber,
+			})
+		}
+	}
+
+	summary := BuildSummary(mainEvent)
+
 	contextBefore = MakeLimitSlice(contextBefore, limit)
 	contextAfter = MakeLimitSlice(contextAfter, limit)
 	userEvents = MakeLimitSlice(userEvents, limit)
 	fileEvents = MakeLimitSlice(fileEvents, limit)
 	destinationEvents = MakeLimitSlice(destinationEvents, limit)
-
-	timelineItems, linksTotimelineItems := BuildTimeline(mainEvent, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents, eventsLink)
-
-	if len(timelineItems) > limit {
-		timelineItems = timelineItems[:limit]
-		linksTotimelineItems = linksTotimelineItems[:limit]
-	}
-
-	summary := BuildSummary(mainEvent)
 
 	contextBeforeIds := FindIDs(contextBefore)
 	contextAfterIds := FindIDs(contextAfter)
@@ -93,13 +137,14 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, eventsLink []Lin
 		SameFileEvents:           fileEventsIds,
 		SameDestinationEvents:    destinationEventsIds,
 		TimeLine:                 timelineItems,
+		TotalTimelineEvents:	  totalTimelineEvents,
 		SuspiciousFactors:        suspicious,
-		LinksToTheOriginalEvents: linksTotimelineItems,
+		LinksToTheOriginalEvents: linksTotimeline,
 	}, nil
 
 }
 
-func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents []*Event, eventsLink []LinkInFile) ([]TimelineItem, []LinkInFile) {
+func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents []*Event) []TimelineItem {
 
 	roleMap := make(map[string]Role) // соответствие события и его роли
 
@@ -153,7 +198,6 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 
 	// собираем срез []TimelineItem
 	timelineItems := make([]TimelineItem, 0, len(allUniqueEventsMap))
-	linksTotimelineItems := make([]LinkInFile, 0, len(allUniqueEventsMap))
 	for _, event := range allUniqueEventsMap {
 		var fileName, destination, severity string
 		if event.FileName != nil {
@@ -176,16 +220,6 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 			Destination: destination,
 			Severity:    severity,
 		})
-
-		for _, link := range eventsLink {
-			if link.EventID == event.EventID {
-				linksTotimelineItems = append(linksTotimelineItems, LinkInFile{
-					EventID:  event.EventID,
-					FileName: link.FileName,
-					FileLine: link.FileLine,
-				})
-			}
-		}
 	}
 
 	// Сортировка по времени, при равенстве времени сортируем по event_id
@@ -198,12 +232,7 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 		return time_i.Before(time_j)
 	})
 
-	// Сортировка ссылок по event_id
-	sort.Slice(linksTotimelineItems, func(i, j int) bool {
-		return linksTotimelineItems[i].EventID < linksTotimelineItems[j].EventID
-	})
-
-	return timelineItems, linksTotimelineItems
+	return timelineItems
 
 }
 
@@ -228,16 +257,16 @@ func FindIDs(events []*Event) []string {
 func WriteSummaryText(mainEvent *Event) string {
 	var summary strings.Builder
 	summary.WriteString("Пользователь ")
-	summary.WriteString(fmt.Sprintf("***%s***", mainEvent.UserID))
+	summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(mainEvent.UserID)))
 	summary.WriteString(" совершил действие ")
-	summary.WriteString(fmt.Sprintf("***%s***", mainEvent.Action))
+	summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(mainEvent.Action)))
 	if mainEvent.FileName != nil {
 		summary.WriteString(" с файлом ")
-		summary.WriteString(fmt.Sprintf("***%s***", *mainEvent.FileName))
+		summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(*mainEvent.FileName)))
 	}
 	if mainEvent.Destination != nil {
 		summary.WriteString(" в адрес ")
-		summary.WriteString(fmt.Sprintf("***%s***", *mainEvent.Destination))
+		summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(*mainEvent.Destination)))
 	}
 	summary.WriteString(".\n\n")
 	return summary.String()
@@ -246,14 +275,14 @@ func WriteSummaryText(mainEvent *Event) string {
 func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEventsPerSection int) string {
 	var markdownnContent strings.Builder
 	markdownnContent.WriteString("# Карточка инцидента\n\n")
-	markdownnContent.WriteString(fmt.Sprintf("__ID инцидента:__ %s\n\n", answer.IncidentID))
+	markdownnContent.WriteString(fmt.Sprintf("__ID инцидента:__ %s\n\n", escapeMarkdownText(answer.IncidentID)))
 
 	markdownnContent.WriteString("## Краткое резюме ##\n\n")
 	markdownnContent.WriteString(WriteSummaryText(mainEvent))
 
 	markdownnContent.WriteString("## Главное событие ##\n\n")
-	markdownnContent.WriteString(fmt.Sprintf("- __Event ID:__ %s\n", answer.MainEvent.EventID))
-	markdownnContent.WriteString(fmt.Sprintf("- __Action:__ %s\n", answer.MainEvent.Action))
+	markdownnContent.WriteString(fmt.Sprintf("- __Event ID:__ %s\n", escapeMarkdownText(answer.MainEvent.EventID)))
+	markdownnContent.WriteString(fmt.Sprintf("- __Action:__ %s\n", escapeMarkdownText(answer.MainEvent.Action)))
 
 	markdownnContent.WriteString("## Контекст до события ##\n\n")
 	PrintSectionEvents(answer.ContextBefore, &markdownnContent)
@@ -274,8 +303,8 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEven
 	if len(answer.TimeLine) == 0 {
 		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
 	} else {
-		if len(answer.TimeLine) > maxEventsPerSection {
-			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение. В таблице приведены первые %d событий из %d.\n\n", maxEventsPerSection, len(answer.TimeLine)))
+		if answer.TotalTimelineEvents > maxEventsPerSection {
+			markdownnContent.WriteString(fmt.Sprintf("Количество записей превысило максимально возможное значение (truncated). В таблице приведены первые %d событий из %d.\n\n", maxEventsPerSection, answer.TotalTimelineEvents))
 		}
 		markdownnContent.WriteString("| Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |\n")
 		markdownnContent.WriteString("|:---|:---|:---|:---|:---|:---|:---:|:---:|\n")
@@ -297,7 +326,7 @@ func GenerateMarkdownCard(mainEvent *Event, answer *Answer, index Index, maxEven
 		markdownnContent.WriteString("Подходящих для данного раздела событий не найдено\n\n")
 	} else {
 		for _, link := range answer.LinksToTheOriginalEvents {
-			markdownnContent.WriteString(fmt.Sprintf("- ___%s___: файл __%s__ строка __%d__\n", link.EventID, link.FileName, link.FileLine))
+			markdownnContent.WriteString(fmt.Sprintf("- ___%s___: файл __%s__ строка __%d__\n", escapeMarkdownText(link.EventID), escapeMarkdownText(link.FileName), link.FileLine))
 		}
 	}
 
@@ -310,60 +339,72 @@ func PrintSectionEvents(ids []string, markdownnContent *strings.Builder) {
 		return
 	} else {
 		for _, id := range ids {
-			markdownnContent.WriteString(fmt.Sprintf("- %s\n", id))
+			markdownnContent.WriteString(fmt.Sprintf("- %s\n", escapeMarkdownText(id)))
 		}
 		markdownnContent.WriteString("\n")
 	}
 }
 
 func WriteTableRaw(item *TimelineItem, markdownnContent *strings.Builder) {
+
+	escapeCell := func(s string) string {
+		return escapeMarkdownCell(escapeMarkdownText(s))
+	}
 	for i := 0; i <= 7; i++ {
 		switch i {
 		case 0:
 			if item.Timestamp != "" {
-				markdownnContent.WriteString(fmt.Sprintf("|%s", item.Timestamp))
+				markdownnContent.WriteString("|")
+				markdownnContent.WriteString(escapeCell(item.Timestamp))
 			} else {
 				markdownnContent.WriteString("|-")
 			}
 		case 1:
 			if item.EventID != "" {
-				markdownnContent.WriteString(fmt.Sprintf("|%s", item.EventID))
+				markdownnContent.WriteString("|")
+				markdownnContent.WriteString(escapeCell(item.EventID))
 			} else {
 				markdownnContent.WriteString("|-")
 			}
 		case 2:
 			if item.UserID != "" {
-				markdownnContent.WriteString(fmt.Sprintf("|%s", item.UserID))
+				markdownnContent.WriteString("|")
+				markdownnContent.WriteString(escapeCell(item.UserID))
 			} else {
 				markdownnContent.WriteString("|-")
 			}
 		case 3:
 			if item.Action != "" {
-				markdownnContent.WriteString(fmt.Sprintf("|%s", item.Action))
+				markdownnContent.WriteString("|")
+				markdownnContent.WriteString(escapeCell(item.Action))
 			} else {
 				markdownnContent.WriteString("|-")
 			}
 		case 4:
 			if item.FileName != "" {
-				markdownnContent.WriteString(fmt.Sprintf("|%s", item.FileName))
+				markdownnContent.WriteString("|")
+				markdownnContent.WriteString(escapeCell(item.FileName))
 			} else {
 				markdownnContent.WriteString("|-")
 			}
 		case 5:
 			if item.Destination != "" {
-				markdownnContent.WriteString(fmt.Sprintf("|%s", item.Destination))
+				markdownnContent.WriteString("|")
+				markdownnContent.WriteString(escapeCell(item.Destination))
 			} else {
 				markdownnContent.WriteString("|-")
 			}
 		case 6:
 			if item.Severity != "" {
-				markdownnContent.WriteString(fmt.Sprintf("|%s", item.Severity))
+				markdownnContent.WriteString("|")
+				markdownnContent.WriteString(escapeCell(item.Severity))
 			} else {
 				markdownnContent.WriteString("|-")
 			}
 		case 7:
 			if item.Role != "" {
-				markdownnContent.WriteString(fmt.Sprintf("|%s", item.Role))
+				markdownnContent.WriteString("|")
+				markdownnContent.WriteString(escapeCell(string(item.Role)))
 			} else {
 				markdownnContent.WriteString("|-")
 			}
@@ -372,4 +413,24 @@ func WriteTableRaw(item *TimelineItem, markdownnContent *strings.Builder) {
 
 	markdownnContent.WriteString("|\n")
 
+}
+
+// Экранирование специальных символов для Markdown
+func escapeMarkdownText(s string) string {
+	replacer := strings.NewReplacer(
+		"\\", "\\\\",
+        "*", "\\*",
+        "_", "\\_",
+        "#", "\\#",
+        "[", "\\[",
+        "]", "\\]",
+        "(", "\\(",
+        ")", "\\)",
+	)
+	return replacer.Replace(s)
+}
+
+// Экранирование символов для ячеек таблицы
+func escapeMarkdownCell (s string) string {
+	return strings.ReplaceAll(s, "|", "\\|")
 }

@@ -58,10 +58,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Необходимо передать --events\n")
 			os.Exit(1)
 		}
-		if *eventId == "" {
-			fmt.Fprintf(os.Stderr, "Необходимо передать --events-id или передать его в JSON-файле\n")
-			os.Exit(1)
-		}
 
 		if *requestFile != "" {
 			reqData, err := os.ReadFile(*requestFile)
@@ -69,6 +65,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Ошибка при чтении файла запроса %s: %v\n", *requestFile, err)
 				os.Exit(1)
 			}
+			reqData = TrimBOM(reqData)
 			err = json.Unmarshal(reqData, &req)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Ошибка парсинга JSON-запроса: %v\n", err)
@@ -76,10 +73,21 @@ func main() {
 			}
 		}
 
-		// Задаём значения из JSON, но только в том случае, если данные ещё не были заполнены CLI (приоритет)
-		if req.MainEventID != "" && *eventId == "" {
+		// Проверка наличия значения обязательного флага event-id (либо в CLI, либо через request)
+		if *eventId == "" && *requestFile == "" {
+			fmt.Fprintf(os.Stderr, "Необходимо передать --event-id или --request c main_event_id.\n")
+				os.Exit(1)
+		}
+		// Если request есть, но event-id не задан в CLI, пытаемся взять из request
+		if (*eventId == "" && *requestFile != "") {
+			if (req.MainEventID == "") {
+				fmt.Fprintf(os.Stderr, "В файле запроса не указан main_event_id.\n")
+				os.Exit(1)
+			}
 			*eventId = req.MainEventID
 		}
+
+		// Задаём значения из JSON, но только в том случае, если данные ещё не были заполнены CLI (приоритет)
 		if req.WindowBefore != "" && *beforeEvent == "" {
 			*beforeEvent = req.WindowBefore
 		}
@@ -105,15 +113,12 @@ func main() {
 		if limit == 0 {
 			limit = 50
 		}
-
-		events, eventsLink, err := internal.ReadEvents(*eventsFile)
+		events, index, err := internal.ReadEvents(*eventsFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("Прочитано %d событий\n", len(events))
-
-		index := internal.BuildIndex(events)
 
 		mainEvent, isExist := index.GetEvent(*eventId)
 		if !isExist {
@@ -152,7 +157,7 @@ func main() {
 			rules = factArr.Factors
 		}
 
-		answer, err := internal.BuildAnswer(mainEvent, index, events, eventsLink, req, rules)
+		answer, err := internal.BuildAnswer(mainEvent, index, events, *eventsFile , req, rules)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка построения карточки: %v\n", err)
 			os.Exit(1)
@@ -222,7 +227,7 @@ func main() {
 			}
 			fmt.Printf("DOT-граф записан в файл %s\n", *dotFile)
 		} else {
-			fmt.Println("Для сохранения создания DOT-графа необходимо передать --dot c дирректорией файла")
+			fmt.Println("Для сохранения создания DOT-графа необходимо передать --dot c директорией файла")
 		}
 	case "generate":
 		err := generateCommand.Parse(os.Args[2:])
@@ -272,4 +277,12 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+
+func TrimBOM(data []byte) []byte {
+	if (len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) {
+		return data[3:]
+	}
+	return data
 }

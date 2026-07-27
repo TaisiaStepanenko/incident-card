@@ -111,3 +111,47 @@ func TestIndexDestinationIdGroup(t *testing.T) {
 	assert.Len(t, nonExistentDestination, 0)
 	assert.Empty(t, nonExistentDestination)
 }
+
+// Поиск событий через GetEvent
+func TestFindEvent(t *testing.T) {
+	events := []Event{
+		{EventID: "evt_001"},
+		{EventID: "evt_002"},
+	}
+
+	index := BuildIndex(events)
+	_, isExist := index.GetEvent("evt_001")
+	if (!isExist) {
+		t.Error("Событие evt_001 не найдено.")
+	}
+
+	_, isExist = index.GetEvent("evt_003")
+	if (isExist) {
+		t.Error("Событие evt_003 найдено, но не должно существовать.")
+	}
+}
+
+// Поиск связанных событий
+func TestSearchRelationship(t *testing.T) {
+	userID := "user_017"
+	fileID := "file_001"
+	destID := "dest_001"
+
+	events := []Event{
+		{EventID: "evt_001", UserID: userID},
+		{EventID: "evt_002", FileID: &fileID},
+		{EventID: "evt_003", DestinationID: &destID},
+	}
+
+	index := BuildIndex(events)
+	if (len(index.GetEventByUser(userID)) != 1) {
+		t.Errorf("Ожидалось 1 связанное событие по пользователю, найдено %d", len(index.GetEventByUser(userID)))
+	}
+	if (len(index.GetEventByFile(fileID)) != 1) {
+		t.Errorf("Ожидалось 1 связанное событие по файлу, найдено %d", len(index.GetEventByFile(userID)))
+	}
+	if (len(index.GetEventByDestination(destID)) != 1) {
+		t.Errorf("Ожидалось 1 связанное событие по адресату, найдено %d", len(index.GetEventByDestination(userID)))
+	}
+}
+

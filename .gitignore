@@ -7,3 +7,4 @@ coverage.out
 *.svg
 incident-card
 incident-card.exe
+benchmarks/generated_events.jsonl

@@ -17,6 +17,7 @@ type Event struct {
 	Destination     *string  `json:"destination,omitempty"`
 	SizeBytes       *int64   `json:"size_bytes,omitempty"`
 	Severity        *string  `json:"severity,omitempty"`
+	LineNumber 		int 	 `json:"-"`
 }
 
 type Request struct {
@@ -41,10 +42,15 @@ type Answer struct {
 	Summary                  string         `json:"summary"`
 	ContextBefore            []string       `json:"context_before,omitempty"`
 	ContextAfter             []string       `json:"context_after,omitempty"`
+	// SameUserEvents содержит собятия с тем же пользователем same_user
 	SameUserEvents           []string       `json:"same_user_events,omitempty"`
+	// SameFileEvents содержит собятия с тем же файлом same_file
 	SameFileEvents           []string       `json:"same_file_events,omitempty"`
+	// SameDestinationEvents содержит собятия с тем же адресатом same_destination
 	SameDestinationEvents    []string       `json:"same_destination_events,omitempty"`
 	TimeLine                 []TimelineItem `json:"timeline"`
+	// TotalTimelineEvents общее количество событий до обрезания (не сериализируется)
+	TotalTimelineEvents		 int 			`json:"-"`
 	SuspiciousFactors        []string       `json:"suspicious_factors,omitempty"`
 	LinksToTheOriginalEvents []LinkInFile   `json:"links_to_original_events,omitempty"`
 }

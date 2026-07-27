@@ -10,10 +10,10 @@ type Index struct {
 func BuildIndex(events []Event) Index {
 
 	idx := Index{
-		EventIdIndex:       make(map[string]*Event),
-		UserIdGroup:        make(map[string][]*Event),
-		FileIdGroup:        make(map[string][]*Event),
-		DestinationIdGroup: make(map[string][]*Event),
+		EventIdIndex:       make(map[string]*Event, len(events)),
+		UserIdGroup:        make(map[string][]*Event, len(events)),
+		FileIdGroup:        make(map[string][]*Event, len(events)),
+		DestinationIdGroup: make(map[string][]*Event, len(events)),
 	}
 
 	for i := range events {
