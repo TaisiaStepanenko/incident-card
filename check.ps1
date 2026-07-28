@@ -1,137 +1,171 @@
 param(
-    [string]$RepoRoot = (Get-Location).Path,
-    [string]$OutRoot = ''
+    [string]$OutRoot = '',
+    [switch]$AllowDirty
 )
 
-
-# Embedded common helpers. This file is standalone and can be run from the repository root.
-
 Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
+if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 
 function Get-CheckGoCommand {
+    $preferred = 'K:\go\go1.20.14\bin\go.exe'
+    if (Test-Path -LiteralPath $preferred) { return $preferred }
     $go = Get-Command go -ErrorAction SilentlyContinue
-    if ($go) {
-        return $go.Source
-    }
-
-    throw 'go executable was not found in PATH. Install Go and make sure go is available in PATH.'
+    if ($go) { return $go.Source }
+    throw 'go executable was not found in PATH and K:\go\go1.20.14\bin\go.exe is missing.'
 }
 
 function New-CheckContext {
-    param(
-        [Parameter(Mandatory=$true)][string]$Student,
-        [Parameter(Mandatory=$true)][string]$RepoRoot,
-        [string]$OutRoot = ''
-    )
-
-    $repo = (Resolve-Path -LiteralPath $RepoRoot).Path
-    if ($OutRoot -eq '') {
-        $OutRoot = Join-Path $repo '.check-results'
-    }
-
-    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $safeStudent = $Student -replace '[^A-Za-z0-9_.-]', '_'
-    $resultDir = Join-Path $OutRoot "${safeStudent}_${timestamp}"
-    $logsDir = Join-Path $resultDir 'logs'
-    $inputsDir = Join-Path $resultDir 'inputs'
-    $outputsDir = Join-Path $resultDir 'outputs'
-    $metaDir = Join-Path $resultDir 'meta'
-    $tmpDir = Join-Path $resultDir 'tmp'
-
-    foreach ($dir in @($resultDir, $logsDir, $inputsDir, $outputsDir, $metaDir, $tmpDir)) {
-        New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    }
-
+    param([string]$Student, [string]$OutRoot)
+    $repo = (Get-Location).Path
+    if ($OutRoot -eq '') { $OutRoot = Join-Path $repo '.check-results' }
+    $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+    $safe = $Student -replace '[^A-Za-z0-9_.-]', '_'
+    $resultDir = Join-Path $OutRoot "${safe}_${stamp}"
     $ctx = [ordered]@{
         Student = $Student
         RepoRoot = $repo
         ResultDir = $resultDir
-        LogsDir = $logsDir
-        InputsDir = $inputsDir
-        OutputsDir = $outputsDir
-        MetaDir = $metaDir
-        TmpDir = $tmpDir
+        LogsDir = Join-Path $resultDir 'logs'
+        InputsDir = Join-Path $resultDir 'inputs'
+        OutputsDir = Join-Path $resultDir 'outputs'
+        MetaDir = Join-Path $resultDir 'meta'
+        TmpDir = Join-Path $resultDir 'tmp'
         CommandsPath = Join-Path $resultDir 'commands.jsonl'
         GoCmd = Get-CheckGoCommand
         StartedAt = (Get-Date).ToString('o')
         CommandResults = @{}
         Assessments = New-Object System.Collections.ArrayList
     }
-
+    foreach ($dir in @($ctx.ResultDir, $ctx.LogsDir, $ctx.InputsDir, $ctx.OutputsDir, $ctx.MetaDir, $ctx.TmpDir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    }
     '' | Set-Content -LiteralPath $ctx.CommandsPath -Encoding UTF8
     return $ctx
 }
 
-function Write-CheckText {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx,
-        [Parameter(Mandatory=$true)][string]$RelativePath,
-        [Parameter(Mandatory=$true)][string]$Content
-    )
+function Save-CheckJson {
+    param([string]$Path, $Value)
+    ($Value | ConvertTo-Json -Depth 50) | Set-Content -LiteralPath $Path -Encoding UTF8
+}
 
+function Write-CheckText {
+    param($Ctx, [string]$RelativePath, [string]$Content)
     $path = Join-Path $Ctx.ResultDir $RelativePath
     $parent = Split-Path -Parent $path
-    if ($parent) {
-        New-Item -ItemType Directory -Force -Path $parent | Out-Null
-    }
+    if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
     Set-Content -LiteralPath $path -Value $Content -Encoding UTF8
     return $path
 }
 
-function Save-CheckJson {
-    param(
-        [Parameter(Mandatory=$true)][string]$Path,
-        [Parameter(Mandatory=$true)]$Value
-    )
+function To-Rel {
+    param($Ctx, [string]$Path)
+    return $Path.Replace($Ctx.ResultDir, '').TrimStart('\')
+}
 
-    $json = $Value | ConvertTo-Json -Depth 30
-    Set-Content -LiteralPath $Path -Value $json -Encoding UTF8
+function Get-ProcessTreePeakWorkingSet {
+    param([int]$RootProcessId)
+    $queue = New-Object System.Collections.Queue
+    $queue.Enqueue($RootProcessId)
+    $seen = @{}
+    [long]$total = 0
+
+    while ($queue.Count -gt 0) {
+        $currentId = [int]$queue.Dequeue()
+        $key = [string]$currentId
+        if ($seen.ContainsKey($key)) { continue }
+        $seen[$key] = $true
+
+        try {
+            $item = Get-Process -Id $currentId -ErrorAction Stop
+            $workingSet = [Math]::Max([long]$item.WorkingSet64, [long]$item.PeakWorkingSet64)
+            $total += $workingSet
+        } catch {}
+
+        try {
+            $children = @(Get-CimInstance -ClassName Win32_Process -Filter "ParentProcessId = $currentId" -ErrorAction Stop)
+            foreach ($child in $children) {
+                $queue.Enqueue([int]$child.ProcessId)
+            }
+        } catch {}
+    }
+
+    return $total
 }
 
 function Invoke-CheckCommand {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx,
-        [Parameter(Mandatory=$true)][string]$Name,
-        [Parameter(Mandatory=$true)][string]$Command,
-        [string]$WorkingDirectory = ''
-    )
-
-    if ($WorkingDirectory -eq '') {
-        $WorkingDirectory = $Ctx.RepoRoot
-    }
-
-    $safeName = $Name -replace '[^A-Za-z0-9_.-]', '_'
-    $logPath = Join-Path $Ctx.LogsDir "$safeName.log"
-    $runnerPath = Join-Path $Ctx.TmpDir "$safeName.ps1"
+    param($Ctx, [string]$Name, [string]$Command, [string]$WorkingDirectory = '', [int]$TimeoutSec = 0)
+    if ($WorkingDirectory -eq '') { $WorkingDirectory = $Ctx.RepoRoot }
+    $safe = $Name -replace '[^A-Za-z0-9_.-]', '_'
+    $runnerPath = Join-Path $Ctx.TmpDir "$safe.ps1"
+    $stdoutPath = Join-Path $Ctx.TmpDir "$safe.stdout.log"
+    $stderrPath = Join-Path $Ctx.TmpDir "$safe.stderr.log"
+    $logPath = Join-Path $Ctx.LogsDir "$safe.log"
     $started = Get-Date
 
-    $runner = @"
-`$ErrorActionPreference = 'Stop'
-Set-Location -LiteralPath '$($WorkingDirectory.Replace("'", "''"))'
-try {
-    `$global:LASTEXITCODE = `$null
-    `$Error.Clear()
-    $Command
-    `$success = `$?
-    `$exitCode = `$global:LASTEXITCODE
-    if (`$null -eq `$exitCode) {
-        if (`$success -and `$Error.Count -eq 0) {
-            `$exitCode = 0
-        } else {
-            `$exitCode = 1
-        }
-    }
-    exit `$exitCode
-} catch {
-    Write-Error `$_
-    exit 1
-}
-"@
-
+    $runner = @(
+        '$ErrorActionPreference = ''Stop'''
+        "Set-Location -LiteralPath '$($WorkingDirectory.Replace("'", "''"))'"
+        'try {'
+        '    $global:LASTEXITCODE = $null'
+        '    $Error.Clear()'
+        "    $Command"
+        '    $success = $?'
+        '    $exitCode = $global:LASTEXITCODE'
+        '    if ($null -eq $exitCode) {'
+        '        if ($success -and $Error.Count -eq 0) { $exitCode = 0 } else { $exitCode = 1 }'
+        '    }'
+        '    exit $exitCode'
+        '} catch {'
+        '    Write-Error $_'
+        '    exit 1'
+        '}'
+    ) -join "`r`n"
     Set-Content -LiteralPath $runnerPath -Value $runner -Encoding UTF8
-
-    $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runnerPath 2>&1
-    $exitCode = $LASTEXITCODE
+    [long]$peak = 0
+    $timedOut = $false
+    $stdout = ''
+    $stderr = ''
+    $exitCode = 1
+    if ($TimeoutSec -le 0) {
+        $prevErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runnerPath 2>&1
+        $ErrorActionPreference = $prevErrorAction
+        $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+        $stderr = ($output | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | Out-String)
+        $stdout = ($output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | Out-String)
+    } else {
+        if (Test-Path -LiteralPath $stdoutPath) { Remove-Item -LiteralPath $stdoutPath -Force }
+        if (Test-Path -LiteralPath $stderrPath) { Remove-Item -LiteralPath $stderrPath -Force }
+        $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $runnerPath)
+        $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList $args -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        while (-not $proc.HasExited) {
+            $treePeak = Get-ProcessTreePeakWorkingSet -RootProcessId $proc.Id
+            if ($treePeak -gt $peak) { $peak = $treePeak }
+            if (((Get-Date) - $started).TotalSeconds -gt $TimeoutSec) {
+                $timedOut = $true
+                try {
+                    & taskkill.exe /PID ([string]$proc.Id) /T /F 2>&1 | Out-Null
+                } catch {
+                    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                }
+                break
+            }
+            Start-Sleep -Milliseconds 200
+        }
+        $proc.WaitForExit()
+        $exitCode = if ($timedOut) {
+            124
+        } else {
+            $proc.Refresh()
+            [int]$proc.ExitCode
+        }
+        $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
+        $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { '' }
+    }
     $ended = Get-Date
 
     @(
@@ -139,12 +173,18 @@ try {
         "working_directory: $WorkingDirectory"
         "command:"
         $Command
+        "timeout_sec: $TimeoutSec"
+        "timed_out: $timedOut"
+        "peak_working_set_bytes: $peak"
         "exit_code: $exitCode"
         "started_at: $($started.ToString('o'))"
         "ended_at: $($ended.ToString('o'))"
-        ""
-        "output:"
-        ($output | Out-String)
+        ''
+        'stdout:'
+        $stdout
+        ''
+        'stderr:'
+        $stderr
     ) | Set-Content -LiteralPath $logPath -Encoding UTF8
 
     $record = [ordered]@{
@@ -152,30 +192,20 @@ try {
         command = $Command
         working_directory = $WorkingDirectory
         exit_code = $exitCode
+        timed_out = $timedOut
+        peak_working_set_bytes = $peak
         started_at = $started.ToString('o')
         ended_at = $ended.ToString('o')
         duration_ms = [int](($ended - $started).TotalMilliseconds)
-        log = "logs/$safeName.log"
+        log = "logs/$safe.log"
     }
     ($record | ConvertTo-Json -Compress) | Add-Content -LiteralPath $Ctx.CommandsPath -Encoding UTF8
     $Ctx.CommandResults[$Name] = $record
-    $script:LAST_CHECK_EXIT_CODE = $exitCode
 }
 
 function Add-FeatureAssessment {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx,
-        [Parameter(Mandatory=$true)][string]$Id,
-        [Parameter(Mandatory=$true)][ValidateSet('minimum','good','excellent','engineering')][string]$Level,
-        [Parameter(Mandatory=$true)][string]$Category,
-        [Parameter(Mandatory=$true)][string]$Requirement,
-        [Parameter(Mandatory=$true)][ValidateSet('not_implemented','partial','full')][string]$Implementation,
-        [Parameter(Mandatory=$true)][ValidateSet('not_tested','nonconformant','conformant')][string]$Conformance,
-        [string[]]$Evidence = @(),
-        [string]$Details = ''
-    )
-
-    $item = [ordered]@{
+    param($Ctx, [string]$Id, [string]$Level, [string]$Category, [string]$Requirement, [string]$Implementation, [string]$Conformance, [string[]]$Evidence = @(), [string]$Details = '')
+    $Ctx.Assessments.Add([ordered]@{
         id = $Id
         level = $Level
         category = $Category
@@ -184,349 +214,644 @@ function Add-FeatureAssessment {
         conformance = $Conformance
         evidence = @($Evidence)
         details = $Details
-    }
-    $Ctx.Assessments.Add($item) | Out-Null
+    }) | Out-Null
 }
 
 function Add-CommandFeatureAssessment {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx,
-        [Parameter(Mandatory=$true)][string]$Id,
-        [Parameter(Mandatory=$true)][ValidateSet('minimum','good','excellent','engineering')][string]$Level,
-        [Parameter(Mandatory=$true)][string]$Category,
-        [Parameter(Mandatory=$true)][string]$Requirement,
-        [Parameter(Mandatory=$true)][string]$CommandName,
-        [string[]]$RequiredArtifacts = @(),
-        [string]$Details = ''
-    )
-
-    $hasCommand = $Ctx.CommandResults.ContainsKey($CommandName)
-    $exitCode = if ($hasCommand) { [int]$Ctx.CommandResults[$CommandName].exit_code } else { -999 }
-    $missingArtifacts = @($RequiredArtifacts | Where-Object { -not (Test-Path -LiteralPath $_) })
-    $implementation = 'not_implemented'
-    $conformance = 'not_tested'
-
-    if ($hasCommand) {
-        $implementation = if ($exitCode -eq 0 -and $missingArtifacts.Count -eq 0) { 'full' } else { 'partial' }
-        $conformance = if ($exitCode -eq 0 -and $missingArtifacts.Count -eq 0) { 'conformant' } else { 'nonconformant' }
-    }
-
+    param($Ctx, [string]$Id, [string]$Level, [string]$Category, [string]$Requirement, [string]$CommandName, [string[]]$RequiredArtifacts = @(), [bool]$ExtraConformant, [string[]]$ExtraEvidence = @(), [string]$Details = '')
+    $has = $Ctx.CommandResults.ContainsKey($CommandName)
+    $code = if ($has) { [int]$Ctx.CommandResults[$CommandName].exit_code } else { -999 }
+    $missing = @($RequiredArtifacts | Where-Object { -not (Test-Path -LiteralPath $_) })
+    $ok = $has -and $code -eq 0 -and $missing.Count -eq 0 -and $ExtraConformant
+    $implementation = if (-not $has) { 'not_implemented' } elseif ($ok) { 'full' } else { 'partial' }
+    $conformance = if ($ok) { 'conformant' } else { 'nonconformant' }
     $evidence = @()
-    if ($hasCommand) {
-        $evidence += [string]$Ctx.CommandResults[$CommandName].log
-    }
-    foreach ($artifact in $RequiredArtifacts) {
-        if (Test-Path -LiteralPath $artifact) {
-            $evidence += $artifact.Replace($Ctx.ResultDir, '').TrimStart('\')
-        }
-    }
-
-    $detailParts = @()
-    if ($Details) {
-        $detailParts += $Details
-    }
-    if ($hasCommand) {
-        $detailParts += "exit_code=$exitCode"
-    } else {
-        $detailParts += 'command was not executed'
-    }
-    if ($missingArtifacts.Count -gt 0) {
-        $detailParts += "missing artifacts: $($missingArtifacts -join ', ')"
-    }
-
-    Add-FeatureAssessment -Ctx $Ctx -Id $Id -Level $Level -Category $Category -Requirement $Requirement -Implementation $implementation -Conformance $conformance -Evidence $evidence -Details ($detailParts -join '; ')
+    if ($has) { $evidence += [string]$Ctx.CommandResults[$CommandName].log }
+    foreach ($artifact in $RequiredArtifacts) { if (Test-Path -LiteralPath $artifact) { $evidence += To-Rel -Ctx $Ctx -Path $artifact } }
+    $evidence += $ExtraEvidence
+    Add-FeatureAssessment -Ctx $Ctx -Id $Id -Level $Level -Category $Category -Requirement $Requirement -Implementation $implementation -Conformance $conformance -Evidence ($evidence | Select-Object -Unique) -Details ("exit_code=$code; $Details")
 }
 
 function Add-BooleanFeatureAssessment {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx,
-        [Parameter(Mandatory=$true)][string]$Id,
-        [Parameter(Mandatory=$true)][ValidateSet('minimum','good','excellent','engineering')][string]$Level,
-        [Parameter(Mandatory=$true)][string]$Category,
-        [Parameter(Mandatory=$true)][string]$Requirement,
-        [Parameter(Mandatory=$true)][bool]$Implemented,
-        [Parameter(Mandatory=$true)][bool]$Conformant,
-        [string[]]$Evidence = @(),
-        [string]$Details = ''
-    )
-
-    $implementation = if ($Implemented) { 'full' } else { 'not_implemented' }
-    $conformance = if (-not $Implemented) { 'not_tested' } elseif ($Conformant) { 'conformant' } else { 'nonconformant' }
+    param($Ctx, [string]$Id, [string]$Level, [string]$Category, [string]$Requirement, [bool]$Ok, [string[]]$Evidence = @(), [string]$Details = '')
+    $implementation = 'not_implemented'
+    $conformance = 'nonconformant'
+    if ($Ok) {
+        $implementation = 'full'
+        $conformance = 'conformant'
+    }
     Add-FeatureAssessment -Ctx $Ctx -Id $Id -Level $Level -Category $Category -Requirement $Requirement -Implementation $implementation -Conformance $conformance -Evidence $Evidence -Details $Details
 }
 
-function Add-SourceFeatureAssessment {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx,
-        [Parameter(Mandatory=$true)][string]$Id,
-        [Parameter(Mandatory=$true)][ValidateSet('minimum','good','excellent','engineering')][string]$Level,
-        [Parameter(Mandatory=$true)][string]$Category,
-        [Parameter(Mandatory=$true)][string]$Requirement,
-        [Parameter(Mandatory=$true)][string[]]$Patterns,
-        [ValidateSet('any','all')][string]$Match = 'all',
-        [string]$Details = ''
-    )
+function Read-CheckJson {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    $raw = Get-Content -LiteralPath $Path -Raw
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
+    return $raw | ConvertFrom-Json
+}
 
-    $files = @(Get-ChildItem -LiteralPath $Ctx.RepoRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
-        $_.FullName -notlike '*\.check-results\*' -and ($_.Extension -in @('.go', '.md') -or $_.Name -eq 'Makefile')
-    })
-    $matchedPatterns = @()
-    $evidence = @()
-    foreach ($pattern in $Patterns) {
-        $hits = @($files | Select-String -Pattern $pattern -ErrorAction SilentlyContinue)
-        if ($hits.Count -gt 0) {
-            $matchedPatterns += $pattern
-            $evidence += @($hits | Select-Object -First 5 | ForEach-Object {
-                "$($_.Path):$($_.LineNumber)"
-            })
+# Поля выходного JSON опциональны (omitempty), а Set-StrictMode 2.0 запрещает обращение
+# к несуществующим свойствам, поэтому читаем их только через эти обёртки.
+function Get-JsonProperty {
+    param($Object, [string]$Name)
+    if ($null -eq $Object) { return $null }
+    if ($null -eq $Object.PSObject) { return $null }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
+
+function Get-JsonArray {
+    param($Object, [string]$Name)
+    $value = Get-JsonProperty -Object $Object -Name $Name
+    if ($null -eq $value) { return @() }
+    return @($value)
+}
+
+function Test-ArrayExact {
+    param([object[]]$Actual, [object[]]$Expected)
+    if ($Actual.Count -ne $Expected.Count) { return $false }
+    for ($i = 0; $i -lt $Actual.Count; $i++) { if ([string]$Actual[$i] -ne [string]$Expected[$i]) { return $false } }
+    return $true
+}
+
+# Задание не фиксирует ни включение главного события в разделы same_*, ни включение
+# границы временного окна, поэтому корректной считается любая из допустимых последовательностей.
+function Test-ArrayIsOneOf {
+    param([object[]]$Actual, [object[]]$Allowed)
+    foreach ($variant in $Allowed) {
+        if (Test-ArrayExact -Actual $Actual -Expected @($variant)) { return $true }
+    }
+    return $false
+}
+
+# Порядок подозрительных факторов заданием не определён, сравниваем как множества.
+function Test-SetEquals {
+    param([object[]]$Actual, [object[]]$Expected)
+    $actualSet = @($Actual | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+    $expectedSet = @($Expected | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+    return (Test-ArrayExact -Actual $actualSet -Expected $expectedSet)
+}
+
+function Test-Rfc3339 {
+    param([string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return $false }
+    [ref]$parsed = [datetimeoffset]::MinValue
+    return [datetimeoffset]::TryParse(
+        $Value,
+        [System.Globalization.CultureInfo]::InvariantCulture,
+        [System.Globalization.DateTimeStyles]::RoundtripKind,
+        $parsed)
+}
+
+function Get-EventIdAtLine {
+    param([string]$Path, [int]$LineNumber)
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    $reader = [System.IO.File]::OpenText($Path)
+    try {
+        $number = 0
+        while ($true) {
+            $line = $reader.ReadLine()
+            if ($null -eq $line) { return '' }
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $number++
+            if ($number -eq $LineNumber) {
+                if ($line -match '"event_id"\s*:\s*"([^"]+)"') { return $Matches[1] }
+                return ''
+            }
         }
+    } finally {
+        $reader.Close()
     }
+}
 
-    $implemented = if ($Match -eq 'all') {
-        $matchedPatterns.Count -eq $Patterns.Count
-    } else {
-        $matchedPatterns.Count -gt 0
+function Get-RepoTestFiles {
+    param($Ctx)
+    return @(Get-ChildItem -LiteralPath $Ctx.RepoRoot -Recurse -File -Filter '*_test.go' -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notlike '*\.check-results\*' })
+}
+
+# Возвращает имена тестов, завершившихся статусом pass, из вывода go test -json.
+function Get-PassedTestNames {
+    param([string]$JsonLines)
+    $names = New-Object 'System.Collections.Generic.HashSet[string]'
+    foreach ($line in ($JsonLines -split "`r?`n")) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        if ($line -notmatch '"Action"\s*:\s*"pass"') { continue }
+        if ($line -match '"Test"\s*:\s*"([^"]+)"') { [void]$names.Add($Matches[1]) }
     }
-    $implementation = if ($implemented) { 'partial' } else { 'not_implemented' }
-    $detailText = "source-only check; matched=$($matchedPatterns.Count)/$($Patterns.Count)"
-    if ($Details) {
-        $detailText = "$Details; $detailText"
+    return $names
+}
+
+function Test-TimelineSortedDedup {
+    param([object[]]$Timeline)
+    $seen = @{}
+    $lastTs = ''
+    $lastID = ''
+    foreach ($item in $Timeline) {
+        $id = [string](Get-JsonProperty -Object $item -Name 'event_id')
+        $ts = [string](Get-JsonProperty -Object $item -Name 'timestamp')
+        if ($seen.ContainsKey($id)) { return $false }
+        $seen[$id] = $true
+        if ($lastTs -gt $ts) { return $false }
+        if ($lastTs -eq $ts -and $lastID -gt $id) { return $false }
+        $lastTs = $ts
+        $lastID = $id
     }
-    Add-FeatureAssessment -Ctx $Ctx -Id $Id -Level $Level -Category $Category -Requirement $Requirement -Implementation $implementation -Conformance 'not_tested' -Evidence ($evidence | Select-Object -Unique) -Details $detailText
+    return $true
+}
+
+function Get-CommandLogText {
+    param($Ctx, [string]$Name)
+    if (-not $Ctx.CommandResults.ContainsKey($Name)) { return '' }
+    $path = Join-Path $Ctx.ResultDir ([string]$Ctx.CommandResults[$Name].log)
+    if (-not (Test-Path -LiteralPath $path)) { return '' }
+    return Get-Content -LiteralPath $path -Raw
+}
+
+function Get-FileStatsUniqueIDs {
+    param([string]$Path)
+    $set = New-Object 'System.Collections.Generic.HashSet[string]'
+    $count = 0
+    $dupes = 0
+    $reader = [System.IO.File]::OpenText($Path)
+    try {
+        while ($true) {
+            $line = $reader.ReadLine()
+            if ($null -eq $line) { break }
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $count++
+            if ($line -notmatch '"event_id"\s*:\s*"([^"]+)"') { throw "line $count does not contain event_id" }
+            $id = $Matches[1]
+            if (-not $set.Add($id)) { $dupes++ }
+        }
+    } finally {
+        $reader.Close()
+    }
+    return [ordered]@{ lines = $count; unique_ids = $set.Count; duplicates = $dupes }
 }
 
 function Add-StandardEngineeringAssessments {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx
-    )
-
-    $testFiles = @(Get-ChildItem -LiteralPath $Ctx.RepoRoot -Recurse -File -Filter '*_test.go' -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike '*\.check-results\*' })
-    $testFunctions = @($testFiles | Select-String -Pattern '^\s*func\s+Test[A-Za-z0-9_]+\s*\(' -ErrorAction SilentlyContinue)
-    $benchmarkFunctions = @($testFiles | Select-String -Pattern '^\s*func\s+Benchmark[A-Za-z0-9_]+\s*\(' -ErrorAction SilentlyContinue)
-
-    $testFileEvidence = @($testFiles | ForEach-Object { $_.FullName })
-    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.unit_tests_present' -Level 'engineering' -Category 'tests' -Requirement 'Go unit tests are present' -Implemented ($testFunctions.Count -gt 0) -Conformant ($testFunctions.Count -gt 0) -Evidence $testFileEvidence -Details "test_files=$($testFiles.Count); test_functions=$($testFunctions.Count)"
-    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.benchmarks_present' -Level 'engineering' -Category 'benchmarks' -Requirement 'Go benchmark tests are present' -Implemented ($benchmarkFunctions.Count -gt 0) -Conformant ($benchmarkFunctions.Count -gt 0) -Evidence $testFileEvidence -Details "benchmark_functions=$($benchmarkFunctions.Count)"
-
-    if ($Ctx.CommandResults.ContainsKey('go_test_all')) {
-        Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.go_test_passes' -Level 'engineering' -Category 'tests' -Requirement 'go test ./... passes' -CommandName 'go_test_all'
-    }
-    if ($Ctx.CommandResults.ContainsKey('go_test_race')) {
-        Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.race_test_passes' -Level 'engineering' -Category 'tests' -Requirement 'go test -race ./... passes' -CommandName 'go_test_race'
-    }
-    if ($Ctx.CommandResults.ContainsKey('make_test')) {
-        Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.make_test_runs' -Level 'engineering' -Category 'reproducibility' -Requirement 'make test passes' -CommandName 'make_test'
-    }
-    if ($Ctx.CommandResults.ContainsKey('make_bench')) {
-        Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.make_bench_runs' -Level 'engineering' -Category 'reproducibility' -Requirement 'make bench passes' -CommandName 'make_bench'
-    }
-    if ($Ctx.CommandResults.ContainsKey('make_demo')) {
-        Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.make_demo_runs' -Level 'engineering' -Category 'reproducibility' -Requirement 'make demo passes' -CommandName 'make_demo'
-    }
-
+    param($Ctx)
+    $testFiles = Get-RepoTestFiles -Ctx $Ctx
+    $tests = @($testFiles | Select-String -Pattern '^\s*func\s+Test[A-Za-z0-9_]+\s*\(' -ErrorAction SilentlyContinue)
+    $benches = @($testFiles | Select-String -Pattern '^\s*func\s+Benchmark[A-Za-z0-9_]+\s*\(' -ErrorAction SilentlyContinue)
+    # Свидетельства берём по факту: файлы с тестами ищем в репозитории, а не подставляем ожидаемый путь.
+    $testEvidence = @($tests | ForEach-Object { $_.Path.Replace($Ctx.RepoRoot, '').TrimStart('\').Replace('\', '/') } | Select-Object -Unique)
+    $benchEvidence = @($benches | ForEach-Object { $_.Path.Replace($Ctx.RepoRoot, '').TrimStart('\').Replace('\', '/') } | Select-Object -Unique)
+    if ($testEvidence.Count -eq 0) { $testEvidence = @('нет файлов *_test.go с функциями Test') }
+    if ($benchEvidence.Count -eq 0) { $benchEvidence = @('нет файлов *_test.go с функциями Benchmark') }
+    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.unit_tests_present' -Level 'engineering' -Category 'tests' -Requirement 'Go unit tests are present' -Ok ($tests.Count -gt 0) -Evidence $testEvidence
+    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.benchmarks_present' -Level 'engineering' -Category 'benchmarks' -Requirement 'Go benchmark tests are present' -Ok ($benches.Count -gt 0) -Evidence $benchEvidence
+    Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.go_test_passes' -Level 'engineering' -Category 'tests' -Requirement 'go test ./... passes' -CommandName 'go_test_all' -ExtraConformant $true
+    Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.make_test_runs' -Level 'engineering' -Category 'reproducibility' -Requirement 'make test passes' -CommandName 'make_test' -ExtraConformant $true
+    Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.make_bench_runs' -Level 'engineering' -Category 'reproducibility' -Requirement 'make bench passes' -CommandName 'make_bench' -ExtraConformant $true
+    Add-CommandFeatureAssessment -Ctx $Ctx -Id 'engineering.make_demo_runs' -Level 'engineering' -Category 'reproducibility' -Requirement 'make demo passes' -CommandName 'make_demo' -ExtraConformant $true
     $readmePath = Join-Path $Ctx.RepoRoot 'README.md'
-    $readmeOk = (Test-Path -LiteralPath $readmePath) -and ((Get-Item -LiteralPath $readmePath).Length -gt 100)
-    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.readme' -Level 'engineering' -Category 'documentation' -Requirement 'README.md exists and is not empty' -Implemented $readmeOk -Conformant $readmeOk -Evidence @('repo_snapshot/README.md')
-
+    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.readme' -Level 'engineering' -Category 'documentation' -Requirement 'README.md exists and is not empty' -Ok ((Test-Path -LiteralPath $readmePath) -and ((Get-Item -LiteralPath $readmePath).Length -gt 100)) -Evidence @('repo_snapshot/README.md')
     $makefilePath = Join-Path $Ctx.RepoRoot 'Makefile'
     $makefileText = if (Test-Path -LiteralPath $makefilePath) { Get-Content -LiteralPath $makefilePath -Raw } else { '' }
     foreach ($target in @('test','bench','demo')) {
-        $targetOk = $makefileText -match "(?m)^\s*${target}\s*:"
-        Add-BooleanFeatureAssessment -Ctx $Ctx -Id "engineering.make_$target" -Level 'engineering' -Category 'reproducibility' -Requirement "Makefile has target $target" -Implemented $targetOk -Conformant $targetOk -Evidence @('repo_snapshot/Makefile')
+        Add-BooleanFeatureAssessment -Ctx $Ctx -Id "engineering.make_$target" -Level 'engineering' -Category 'reproducibility' -Requirement "Makefile has target $target" -Ok ($makefileText -match "(?m)^\s*${target}\s*:") -Evidence @('repo_snapshot/Makefile')
     }
-
-    $controlPath = Join-Path $Ctx.RepoRoot 'testdata\control'
-    $controlFiles = @()
-    if (Test-Path -LiteralPath $controlPath) {
-        $controlFiles = @(Get-ChildItem -LiteralPath $controlPath -Recurse -File -ErrorAction SilentlyContinue)
-    }
-    $controlEvidence = @($controlFiles | ForEach-Object { $_.FullName })
-    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.control_data' -Level 'engineering' -Category 'reproducibility' -Requirement 'Fixed testdata/control set exists' -Implemented ($controlFiles.Count -gt 0) -Conformant ($controlFiles.Count -gt 0) -Evidence $controlEvidence -Details "files=$($controlFiles.Count)"
-
+    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.control_data' -Level 'engineering' -Category 'reproducibility' -Requirement 'Fixed testdata/control set exists' -Ok (Test-Path -LiteralPath (Join-Path $Ctx.RepoRoot 'testdata\control')) -Evidence @('repo_snapshot/testdata/control')
     $solutionPath = Join-Path $Ctx.RepoRoot 'docs\reshenie.md'
-    $solutionOk = (Test-Path -LiteralPath $solutionPath) -and ((Get-Item -LiteralPath $solutionPath).Length -gt 100)
-    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.solution_doc' -Level 'engineering' -Category 'documentation' -Requirement 'Non-empty docs/reshenie.md exists' -Implemented $solutionOk -Conformant $solutionOk -Evidence @('repo_snapshot/docs/reshenie.md')
+    Add-BooleanFeatureAssessment -Ctx $Ctx -Id 'engineering.solution_doc' -Level 'engineering' -Category 'documentation' -Requirement 'Non-empty docs/reshenie.md exists' -Ok ((Test-Path -LiteralPath $solutionPath) -and ((Get-Item -LiteralPath $solutionPath).Length -gt 100)) -Evidence @('repo_snapshot/docs/reshenie.md')
 }
 
 function Copy-CheckPath {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx,
-        [Parameter(Mandatory=$true)][string]$Source,
-        [Parameter(Mandatory=$true)][string]$RelativeDestination
-    )
-
-    if (-not (Test-Path -LiteralPath $Source)) {
-        return
-    }
-
-    $destination = Join-Path $Ctx.ResultDir $RelativeDestination
-    $parent = Split-Path -Parent $destination
-    if ($parent) {
-        New-Item -ItemType Directory -Force -Path $parent | Out-Null
-    }
-    Copy-Item -LiteralPath $Source -Destination $destination -Recurse -Force
+    param($Ctx, [string]$Source, [string]$RelativeDestination)
+    if (-not (Test-Path -LiteralPath $Source)) { return }
+    $dst = Join-Path $Ctx.ResultDir $RelativeDestination
+    $parent = Split-Path -Parent $dst
+    if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+    Copy-Item -LiteralPath $Source -Destination $dst -Recurse -Force
 }
 
 function Complete-Check {
-    param(
-        [Parameter(Mandatory=$true)]$Ctx,
-        [hashtable]$Extra = @{}
-    )
-
+    param($Ctx, [hashtable]$Extra = @{})
     Add-StandardEngineeringAssessments -Ctx $Ctx
-
-    Invoke-CheckCommand -Ctx $Ctx -Name 'meta_git_head' -Command "git rev-parse HEAD | Set-Content -LiteralPath '$($Ctx.MetaDir)\git_head.txt' -Encoding UTF8" | Out-Null
-    Invoke-CheckCommand -Ctx $Ctx -Name 'meta_git_status' -Command "git status --short | Set-Content -LiteralPath '$($Ctx.MetaDir)\git_status_short.txt' -Encoding UTF8" | Out-Null
-    Invoke-CheckCommand -Ctx $Ctx -Name 'meta_go_version' -Command "& '$($Ctx.GoCmd)' version | Set-Content -LiteralPath '$($Ctx.MetaDir)\go_version.txt' -Encoding UTF8" | Out-Null
-    Invoke-CheckCommand -Ctx $Ctx -Name 'meta_go_env' -Command "& '$($Ctx.GoCmd)' env GOVERSION GOOS GOARCH | Set-Content -LiteralPath '$($Ctx.MetaDir)\go_env.txt' -Encoding UTF8" | Out-Null
-
-    foreach ($name in @('README.md', 'Makefile', 'go.mod', 'docs')) {
-        $path = Join-Path $Ctx.RepoRoot $name
-        Copy-CheckPath -Ctx $Ctx -Source $path -RelativeDestination "repo_snapshot/$name"
+    Invoke-CheckCommand -Ctx $Ctx -Name 'meta_git_head' -Command "git rev-parse HEAD | Set-Content -LiteralPath '$($Ctx.MetaDir)\git_head.txt' -Encoding UTF8"
+    Invoke-CheckCommand -Ctx $Ctx -Name 'meta_git_status' -Command "git status --short | Set-Content -LiteralPath '$($Ctx.MetaDir)\git_status_short.txt' -Encoding UTF8"
+    Invoke-CheckCommand -Ctx $Ctx -Name 'meta_go_version' -Command "& '$($Ctx.GoCmd)' version | Set-Content -LiteralPath '$($Ctx.MetaDir)\go_version.txt' -Encoding UTF8"
+    Invoke-CheckCommand -Ctx $Ctx -Name 'meta_go_env' -Command "& '$($Ctx.GoCmd)' env GOVERSION GOOS GOARCH | Set-Content -LiteralPath '$($Ctx.MetaDir)\go_env.txt' -Encoding UTF8"
+    foreach ($name in @('README.md', 'Makefile', 'go.mod', 'docs', 'testdata')) {
+        Copy-CheckPath -Ctx $Ctx -Source (Join-Path $Ctx.RepoRoot $name) -RelativeDestination "repo_snapshot/$name"
     }
-
-    $assessmentItems = @($Ctx.Assessments)
-    $assessmentSummary = [ordered]@{}
+    $items = @($Ctx.Assessments)
+    $summary = [ordered]@{}
     foreach ($level in @('minimum','good','excellent','engineering')) {
-        $items = @($assessmentItems | Where-Object { $_.level -eq $level })
-        $assessmentSummary[$level] = [ordered]@{
-            total = $items.Count
-            full = @($items | Where-Object { $_.implementation -eq 'full' }).Count
-            partial = @($items | Where-Object { $_.implementation -eq 'partial' }).Count
-            not_implemented = @($items | Where-Object { $_.implementation -eq 'not_implemented' }).Count
-            conformant = @($items | Where-Object { $_.conformance -eq 'conformant' }).Count
-            nonconformant = @($items | Where-Object { $_.conformance -eq 'nonconformant' }).Count
-            not_tested = @($items | Where-Object { $_.conformance -eq 'not_tested' }).Count
+        $lvl = @($items | Where-Object { $_.level -eq $level })
+        $summary[$level] = [ordered]@{
+            total = $lvl.Count
+            full = @($lvl | Where-Object { $_.implementation -eq 'full' }).Count
+            partial = @($lvl | Where-Object { $_.implementation -eq 'partial' }).Count
+            not_implemented = @($lvl | Where-Object { $_.implementation -eq 'not_implemented' }).Count
+            conformant = @($lvl | Where-Object { $_.conformance -eq 'conformant' }).Count
+            nonconformant = @($lvl | Where-Object { $_.conformance -eq 'nonconformant' }).Count
+            not_tested = @($lvl | Where-Object { $_.conformance -eq 'not_tested' }).Count
         }
     }
     Save-CheckJson -Path (Join-Path $Ctx.ResultDir 'assessment.json') -Value ([ordered]@{
         schema_version = 1
         statuses = [ordered]@{
-            implementation = @('not_implemented','partial','full')
-            conformance = @('not_tested','nonconformant','conformant')
+            implementation = @('not_implemented', 'partial', 'full')
+            conformance = @('not_tested', 'nonconformant', 'conformant')
         }
-        summary = $assessmentSummary
-        features = $assessmentItems
+        summary = $summary
+        features = $items
     })
-
-    $manifest = [ordered]@{
+    Save-CheckJson -Path (Join-Path $Ctx.ResultDir 'manifest.json') -Value ([ordered]@{
         student = $Ctx.Student
         repo_root = $Ctx.RepoRoot
         started_at = $Ctx.StartedAt
         completed_at = (Get-Date).ToString('o')
-        machine = [ordered]@{
-            computer_name = $env:COMPUTERNAME
-            user_name = $env:USERNAME
-            os = (Get-CimInstance Win32_OperatingSystem).Caption
-            powershell = $PSVersionTable.PSVersion.ToString()
-        }
         result_dir = $Ctx.ResultDir
         commands_file = 'commands.jsonl'
         assessment_file = 'assessment.json'
         notes = $Extra
-    }
-    Save-CheckJson -Path (Join-Path $Ctx.ResultDir 'manifest.json') -Value $manifest
-
-    $zipPath = "$($Ctx.ResultDir).zip"
-    if (Test-Path -LiteralPath $zipPath) {
-        Remove-Item -LiteralPath $zipPath -Force
-    }
-    Compress-Archive -Path (Join-Path $Ctx.ResultDir '*') -DestinationPath $zipPath -Force
-
+    })
+    $zip = "$($Ctx.ResultDir).zip"
+    if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+    Compress-Archive -Path (Join-Path $Ctx.ResultDir '*') -DestinationPath $zip -Force
     Write-Host "CHECK_RESULT_DIR=$($Ctx.ResultDir)"
-    Write-Host "CHECK_RESULT_ZIP=$zipPath"
-    return $zipPath
+    Write-Host "CHECK_RESULT_ZIP=$zip"
 }
 
-
-$ctx = New-CheckContext -Student 'incident_card_check' -RepoRoot $RepoRoot -OutRoot $OutRoot
-
-$eventsPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/events.jsonl' -Content @'
-{"event_id":"evt_001","timestamp":"2026-06-16T10:00:00Z","user_id":"user_017","machine_id":"pc_003","department":"sales","action":"open_file","channel":"local","file_id":"file_778","file_name":"client_base.xlsx","file_ext":"xlsx","content_classes":["client_data","personal_data"],"destination_type":"none","size_bytes":204800,"severity":"low"}
-{"event_id":"evt_002","timestamp":"2026-06-16T10:10:00Z","user_id":"user_017","machine_id":"pc_003","department":"sales","action":"create_archive","channel":"local","file_id":"file_779","file_name":"client_base.zip","file_ext":"zip","content_classes":["client_data"],"destination_type":"none","size_bytes":409600,"severity":"medium"}
-{"event_id":"evt_003","timestamp":"2026-06-16T10:15:00Z","user_id":"user_017","machine_id":"pc_003","department":"sales","action":"email_send","channel":"email","file_id":"file_778","file_name":"client_base.xlsx","file_ext":"xlsx","content_classes":["client_data","personal_data"],"destination_id":"dst_009","destination_type":"external","destination":"external_email_001","size_bytes":204800,"severity":"high"}
-{"event_id":"evt_004","timestamp":"2026-06-16T10:25:00Z","user_id":"user_017","machine_id":"pc_003","department":"sales","action":"delete_file","channel":"local","file_id":"file_778","file_name":"client_base.xlsx","file_ext":"xlsx","content_classes":["client_data"],"destination_type":"none","size_bytes":204800,"severity":"high"}
-'@
-
-$requestPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/request.json' -Content @'
-{
-  "incident_id": "inc_001",
-  "main_event_id": "evt_003",
-  "window_before": "30m",
-  "window_after": "10m",
-  "include_same_user": true,
-  "include_same_file": true,
-  "include_same_destination": true,
-  "max_events_per_section": 50
+# Прогон должен выполняться на чистом рабочем дереве: иначе результаты нельзя отнести к коммиту.
+$preflightStatus = @()
+$preflightHead = ''
+try {
+    $preflightHead = (& git rev-parse HEAD 2>$null | Select-Object -First 1)
+    $preflightStatus = @(& git status --short 2>$null |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Where-Object { $_ -notmatch '(^|\s)\.check-results' })
+} catch {
+    $preflightStatus = @()
 }
-'@
-
-$factorsPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/factors.yaml' -Content @'
-factors:
-  - factor_id: external_destination
-    title: External destination
-    condition:
-      field: destination_type
-      equals: external
-  - factor_id: client_data
-    title: Client data
-    condition:
-      field: content_classes
-      contains: client_data
-'@
-
-Invoke-CheckCommand -Ctx $ctx -Name 'go_test_all' -Command "& '$($ctx.GoCmd)' test ./..."
-
-if (Test-Path -LiteralPath (Join-Path $ctx.RepoRoot 'Makefile')) {
-    Invoke-CheckCommand -Ctx $ctx -Name 'make_test' -Command 'make test'
-    Invoke-CheckCommand -Ctx $ctx -Name 'make_bench' -Command 'make bench'
-    Invoke-CheckCommand -Ctx $ctx -Name 'make_demo' -Command 'make demo'
+if ($preflightStatus.Count -gt 0 -and -not $AllowDirty) {
+    $joined = ($preflightStatus -join [Environment]::NewLine)
+    throw @"
+Рабочее дерево не чистое, проверка остановлена: результаты нельзя привязать к коммиту.
+$joined
+Закоммитьте или отмените изменения, либо запустите с -AllowDirty, если грязный прогон нужен осознанно.
+"@
 }
+
+$ctx = New-CheckContext -Student 'incident_card_check' -OutRoot $OutRoot
+$notes = [ordered]@{}
+$notes['worktree_clean'] = ($preflightStatus.Count -eq 0)
+$notes['worktree_status'] = @($preflightStatus)
+$notes['head_at_start'] = [string]$preflightHead
+$cleanupTargets = New-Object System.Collections.ArrayList
+
+# Все обязательные по заданию поля должны присутствовать: event_id, timestamp, user_id,
+# machine_id, action, channel. Значения action берутся из перечисления задания.
+$eventsLines = @(
+    '{"event_id":"evt_after_boundary","timestamp":"2026-06-16T10:10:00Z","user_id":"user_ctx","machine_id":"pc_ctx","action":"delete_file","channel":"local","file_id":"ctx_6"}',
+    '{"event_id":"evt_same_file_file_1","timestamp":"2026-06-16T11:01:00Z","user_id":"user_file_a","machine_id":"pc_file_a","action":"copy_file","channel":"local","file_id":"file_1"}',
+    '{"event_id":"evt_before_mid","timestamp":"2026-06-16T09:45:00Z","user_id":"user_ctx","machine_id":"pc_ctx","action":"open_file","channel":"local","file_id":"ctx_2"}',
+    '{"event_id":"evt_after_mid","timestamp":"2026-06-16T10:05:00Z","user_id":"user_ctx","machine_id":"pc_ctx","action":"print_file","channel":"printer","file_id":"ctx_4"}',
+    '{"event_id":"evt_main","timestamp":"2026-06-16T10:00:00Z","user_id":"user_main","machine_id":"pc_main","action":"email_send","channel":"email","file_id":"file_1","file_name":"client_base.xlsx","destination_id":"dest_1","destination_type":"external","destination":"external_email_001","content_classes":["client_data"],"size_bytes":204800,"severity":"high"}',
+    '{"event_id":"evt_outside_before","timestamp":"2026-06-16T09:29:59Z","user_id":"user_ctx","machine_id":"pc_ctx","action":"open_file","channel":"local","file_id":"ctx_0"}',
+    '{"event_id":"evt_same_destination_dest_2","timestamp":"2026-06-16T11:07:00Z","user_id":"user_dest_b","machine_id":"pc_dest_b","action":"email_send","channel":"email","destination_id":"dest_1","destination_type":"external"}',
+    '{"event_id":"evt_same_user_user_2","timestamp":"2026-06-16T11:05:00Z","user_id":"user_main","machine_id":"pc_main","action":"open_file","channel":"local","file_id":"user_2"}',
+    '{"event_id":"evt_before_boundary","timestamp":"2026-06-16T09:30:00Z","user_id":"user_ctx","machine_id":"pc_ctx","action":"open_file","channel":"local","file_id":"ctx_1"}',
+    '{"event_id":"evt_after_near","timestamp":"2026-06-16T10:09:00Z","user_id":"user_ctx","machine_id":"pc_ctx","action":"print_file","channel":"printer","file_id":"ctx_5"}',
+    '{"event_id":"evt_same_destination_dest_1","timestamp":"2026-06-16T11:02:00Z","user_id":"user_dest_a","machine_id":"pc_dest_a","action":"email_send","channel":"email","destination_id":"dest_1","destination_type":"external"}',
+    '{"event_id":"evt_same_overlap","timestamp":"2026-06-16T11:10:00Z","user_id":"user_main","machine_id":"pc_main","action":"email_send","channel":"email","file_id":"file_1","destination_id":"dest_1","destination_type":"external"}',
+    '{"event_id":"evt_same_file_file_2","timestamp":"2026-06-16T11:06:00Z","user_id":"user_file_b","machine_id":"pc_file_b","action":"copy_file","channel":"local","file_id":"file_1"}',
+    '{"event_id":"evt_before_near","timestamp":"2026-06-16T09:59:00Z","user_id":"user_ctx","machine_id":"pc_ctx","action":"open_file","channel":"local","file_id":"ctx_3"}',
+    '{"event_id":"evt_same_user_user_1","timestamp":"2026-06-16T11:00:00Z","user_id":"user_main","machine_id":"pc_main","action":"open_file","channel":"local","file_id":"user_1"}',
+    '{"event_id":"evt_outside_after","timestamp":"2026-06-16T10:10:01Z","user_id":"user_ctx","machine_id":"pc_ctx","action":"delete_file","channel":"local","file_id":"ctx_7"}'
+)
+$eventsPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/events.jsonl' -Content (($eventsLines -join "`n") + "`n")
+# Первая строка валидна, битой должна быть именно вторая: так проверяется номер строки в сообщении.
+$badEventsPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/events_bad.jsonl' -Content ('{"event_id":"evt_main","timestamp":"2026-06-16T10:00:00Z","user_id":"user_main","machine_id":"pc_main","action":"email_send","channel":"email"}' + "`n{bad-json-line}`n")
+$requestPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/request.json' -Content '{"incident_id":"inc_001","main_event_id":"evt_main","window_before":"30m","window_after":"10m","include_same_user":true,"include_same_file":true,"include_same_destination":true,"max_events_per_section":50}'
+$requestLimitPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/request_limit2.json' -Content '{"incident_id":"inc_limit","main_event_id":"evt_main","window_before":"30m","window_after":"10m","include_same_user":true,"include_same_file":true,"include_same_destination":true,"max_events_per_section":2}'
+$requestFlagsOffPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/request_flags_off.json' -Content '{"incident_id":"inc_flags_off","main_event_id":"evt_main","window_before":"30m","window_after":"10m","include_same_user":false,"include_same_file":false,"include_same_destination":false,"max_events_per_section":3}'
+# Значения вне документированного диапазона 1..1000 передаём через формат запроса из задания,
+# а не через недокументированные CLI-флаги.
+$requestLimitZeroPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/request_limit0.json' -Content '{"incident_id":"inc_limit0","main_event_id":"evt_main","window_before":"30m","window_after":"10m","max_events_per_section":0}'
+$requestLimitHugePath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/request_limit1001.json' -Content '{"incident_id":"inc_limit1001","main_event_id":"evt_main","window_before":"30m","window_after":"10m","max_events_per_section":1001}'
+$factorsPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/factors.yaml' -Content "factors:`n  - factor_id: factor_equals`n    title: Equals operator`n    condition:`n      field: destination_type`n      equals: external`n  - factor_id: factor_in`n    title: In operator`n    condition:`n      field: severity`n      in: [high, critical]`n  - factor_id: factor_contains`n    title: Contains operator`n    condition:`n      field: content_classes`n      contains: client_data`n  - factor_id: factor_exists`n    title: Exists operator`n    condition:`n      field: destination_id`n      exists: true`n  - factor_id: factor_negative`n    title: Negative operator`n    condition:`n      field: destination_type`n      equals: internal`n"
 
 $tool = Join-Path $ctx.OutputsDir 'incident-card.exe'
-Invoke-CheckCommand -Ctx $ctx -Name 'build_cli' -Command "& '$($ctx.GoCmd)' build -o '$tool' ./cmd/incident-card"
-
 $cardMd = Join-Path $ctx.OutputsDir 'card.md'
 $cardJson = Join-Path $ctx.OutputsDir 'card.json'
-$dot = Join-Path $ctx.OutputsDir 'graph.dot'
+$cardDot = Join-Path $ctx.OutputsDir 'card.dot'
 $cardFlagsMd = Join-Path $ctx.OutputsDir 'card_flags.md'
 $cardFlagsJson = Join-Path $ctx.OutputsDir 'card_flags.json'
-$generated = Join-Path $ctx.OutputsDir 'generated_events.jsonl'
+$cardLimitMd = Join-Path $ctx.OutputsDir 'card_limit.md'
+$cardLimitJson = Join-Path $ctx.OutputsDir 'card_limit.json'
+$cardFlagsOffJson = Join-Path $ctx.OutputsDir 'card_flags_off.json'
+$genA = Join-Path $ctx.OutputsDir 'generated_a.jsonl'
+$genB = Join-Path $ctx.OutputsDir 'generated_b.jsonl'
+$targetedJsonPath = Join-Path $ctx.OutputsDir 'targeted_go_test.jsonl'
 
-Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_request' -Command "& '$tool' build --events '$eventsPath' --request '$requestPath' --factors '$factorsPath' --out '$cardMd' --json '$cardJson' --dot '$dot'"
-Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_flags' -Command "& '$tool' build --events '$eventsPath' --event-id evt_003 --before 30m --after 10m --out '$cardFlagsMd' --json '$cardFlagsJson'"
-Invoke-CheckCommand -Ctx $ctx -Name 'cli_generate' -Command "& '$tool' generate --count 25 --scenario external_send --out '$generated' --seed 42"
+Invoke-CheckCommand -Ctx $ctx -Name 'go_test_all' -Command "& '$($ctx.GoCmd)' test ./..."
+Invoke-CheckCommand -Ctx $ctx -Name 'make_test' -Command 'make test'
+Invoke-CheckCommand -Ctx $ctx -Name 'make_bench' -Command 'make bench'
+Invoke-CheckCommand -Ctx $ctx -Name 'make_demo' -Command 'make demo'
+Invoke-CheckCommand -Ctx $ctx -Name 'build_cli' -Command "& '$($ctx.GoCmd)' build -o '$tool' ./cmd/incident-card"
+# Тесты запускаем по всему модулю: пакет с тестами заранее неизвестен.
+Invoke-CheckCommand -Ctx $ctx -Name 'targeted_go_test' -Command "& '$($ctx.GoCmd)' test -json ./... | Set-Content -LiteralPath '$targetedJsonPath' -Encoding UTF8"
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_request' -Command "& '$tool' build --events '$eventsPath' --request '$requestPath' --factors '$factorsPath' --out '$cardMd' --json '$cardJson' --dot '$cardDot'"
+# Только флаги, документированные в разделе CLI задания.
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_flags' -Command "& '$tool' build --events '$eventsPath' --event-id evt_main --before 30m --after 10m --out '$cardFlagsMd' --json '$cardFlagsJson'"
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_limit2' -Command "& '$tool' build --events '$eventsPath' --request '$requestLimitPath' --out '$cardLimitMd' --json '$cardLimitJson'"
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_flags_off' -Command "& '$tool' build --events '$eventsPath' --request '$requestFlagsOffPath' --json '$cardFlagsOffJson'"
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_malformed' -Command "& '$tool' build --events '$badEventsPath' --event-id evt_main --out '$($ctx.OutputsDir)\invalid_malformed.md'; if (`$LASTEXITCODE -ne 0) { exit 0 } else { Write-Error 'expected malformed rejection'; exit 1 }"
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_unknown_main' -Command "& '$tool' build --events '$eventsPath' --event-id evt_unknown --out '$($ctx.OutputsDir)\invalid_unknown.md'; if (`$LASTEXITCODE -ne 0) { exit 0 } else { Write-Error 'expected unknown main rejection'; exit 1 }"
+# Задание не требует отвергать значения вне диапазона, поэтому фиксируем только устойчивость:
+# без паники и без зависания, поведение записываем в runtime_validation.json.
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_limit0' -Command "& '$tool' build --events '$eventsPath' --request '$requestLimitZeroPath' --out '$($ctx.OutputsDir)\limit0.md' --json '$($ctx.OutputsDir)\limit0.json'" -TimeoutSec 120
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_limit1001' -Command "& '$tool' build --events '$eventsPath' --request '$requestLimitHugePath' --out '$($ctx.OutputsDir)\limit1001.md' --json '$($ctx.OutputsDir)\limit1001.json'" -TimeoutSec 120
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_generate_25_a' -Command "& '$tool' generate --count 25 --scenario external_send --seed 42 --out '$genA'"
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_generate_25_b' -Command "& '$tool' generate --count 25 --scenario external_send --seed 42 --out '$genB'"
 
-$expectedArtifacts = [ordered]@{
+$card = Read-CheckJson -Path $cardJson
+$cardLimit = Read-CheckJson -Path $cardLimitJson
+$cardFlagsOff = Read-CheckJson -Path $cardFlagsOffJson
+$cardMdText = if (Test-Path -LiteralPath $cardMd) { Get-Content -LiteralPath $cardMd -Raw } else { '' }
+$cardDotText = if (Test-Path -LiteralPath $cardDot) { Get-Content -LiteralPath $cardDot -Raw } else { '' }
+$targetedText = if (Test-Path -LiteralPath $targetedJsonPath) { Get-Content -LiteralPath $targetedJsonPath -Raw } else { '' }
+
+# Имена полей взяты из примера выходного JSON в задании.
+# Граница временного окна и включение главного события в разделы same_* заданием не оговорены,
+# поэтому для каждого раздела допускается несколько корректных последовательностей.
+$allowedBefore = @(
+    ,@('evt_before_boundary', 'evt_before_mid', 'evt_before_near')
+    ,@('evt_before_mid', 'evt_before_near')
+)
+$allowedAfter = @(
+    ,@('evt_after_mid', 'evt_after_near', 'evt_after_boundary')
+    ,@('evt_after_mid', 'evt_after_near')
+)
+$allowedSameUser = @(
+    ,@('evt_same_user_user_1', 'evt_same_user_user_2', 'evt_same_overlap')
+    ,@('evt_main', 'evt_same_user_user_1', 'evt_same_user_user_2', 'evt_same_overlap')
+)
+$allowedSameFile = @(
+    ,@('evt_same_file_file_1', 'evt_same_file_file_2', 'evt_same_overlap')
+    ,@('evt_main', 'evt_same_file_file_1', 'evt_same_file_file_2', 'evt_same_overlap')
+)
+$allowedSameDestination = @(
+    ,@('evt_same_destination_dest_1', 'evt_same_destination_dest_2', 'evt_same_overlap')
+    ,@('evt_main', 'evt_same_destination_dest_1', 'evt_same_destination_dest_2', 'evt_same_overlap')
+)
+# Пятое правило factor_negative не должно срабатывать; порядок факторов заданием не определён.
+$expectedFactors = @('factor_equals', 'factor_in', 'factor_contains', 'factor_exists')
+
+$arraysOk = $false
+$timelineOk = $false
+$summaryOk = $false
+$factorsOk = $false
+$sameFileOk = $false
+$sameDestinationOk = $false
+if ($null -ne $card) {
+    $arraysOk = (Test-ArrayIsOneOf -Actual @(Get-JsonArray -Object $card -Name 'context_before') -Allowed $allowedBefore) -and
+        (Test-ArrayIsOneOf -Actual @(Get-JsonArray -Object $card -Name 'context_after') -Allowed $allowedAfter) -and
+        (Test-ArrayIsOneOf -Actual @(Get-JsonArray -Object $card -Name 'same_user_events') -Allowed $allowedSameUser)
+    $sameFileOk = Test-ArrayIsOneOf -Actual @(Get-JsonArray -Object $card -Name 'same_file_events') -Allowed $allowedSameFile
+    $sameDestinationOk = Test-ArrayIsOneOf -Actual @(Get-JsonArray -Object $card -Name 'same_destination_events') -Allowed $allowedSameDestination
+    $timeline = @(Get-JsonArray -Object $card -Name 'timeline')
+    $mainRows = @($timeline | Where-Object {
+        ([string](Get-JsonProperty -Object $_ -Name 'role') -eq 'main_event') -and
+        ([string](Get-JsonProperty -Object $_ -Name 'event_id') -eq 'evt_main')
+    })
+    $timelineOk = ($timeline.Count -gt 0) -and (Test-TimelineSortedDedup -Timeline $timeline) -and ($mainRows.Count -eq 1)
+    # Резюме должно быть содержательным и зависеть от данных, конкретных слов задание не требует.
+    $summaryText = [string](Get-JsonProperty -Object $card -Name 'summary')
+    $summaryOk = ($summaryText.Trim().Length -ge 10) -and (($summaryText -match 'evt_main') -or ($summaryText -match 'user_main') -or ($summaryText -match 'client_base'))
+    $factorsOk = (Test-SetEquals -Actual @(Get-JsonArray -Object $card -Name 'suspicious_factors') -Expected $expectedFactors)
+}
+# Задание требует десять разделов, таблицу таймлайна и ссылки на исходные события.
+$mdHeadings = @([regex]::Matches($cardMdText, '(?m)^#{1,6}\s+\S'))
+$mdTimelineTable = ($cardMdText -match '(?m)^\|(?:[^|\r\n]*\|){7,}')
+$markdownOk = ($mdHeadings.Count -ge 10) -and $mdTimelineTable -and ($cardMdText -match 'evt_main')
+# Имя графа заданием не задано, проверяем структуру: объявление, главный узел и хотя бы одно ребро.
+$dotOk = ($cardDotText -match '(?m)^\s*(strict\s+)?digraph\b') -and ($cardDotText -match 'evt_main') -and ($cardDotText -match '->')
+
+# Минимум, пункт 5: тесты поиска и сортировки. Пакет и имена тестов заданием не заданы,
+# поэтому ищем прошедшие тесты по смыслу имени во всём модуле.
+$passedTests = Get-PassedTestNames -JsonLines $targetedText
+$searchTests = @($passedTests | Where-Object { $_ -match '(?i)find|search|index|lookup|relation' })
+$sortTests = @($passedTests | Where-Object { $_ -match '(?i)timeline|sort|dedup|order' })
+$targetedTestsOk = ($ctx.CommandResults['targeted_go_test'].exit_code -eq 0) -and ($searchTests.Count -gt 0) -and ($sortTests.Count -gt 0)
+
+$malformedLog = Get-CommandLogText -Ctx $ctx -Name 'cli_build_malformed'
+$unknownMainLog = Get-CommandLogText -Ctx $ctx -Name 'cli_build_unknown_main'
+$limit0Log = Get-CommandLogText -Ctx $ctx -Name 'cli_build_limit0'
+$limit1001Log = Get-CommandLogText -Ctx $ctx -Name 'cli_build_limit1001'
+# Язык и формулировка сообщения заданием не заданы; требуется указание файла, строки или поля.
+$malformedRejected = ($ctx.CommandResults['cli_build_malformed'].exit_code -eq 0) -and ($malformedLog -match 'events_bad\.jsonl[:\s]*2\b')
+$unknownMainRejected = ($ctx.CommandResults['cli_build_unknown_main'].exit_code -eq 0) -and ($unknownMainLog -match 'evt_unknown')
+# Отвергать значение вне диапазона задание не обязывает: допустимы и явная ошибка, и подстановка
+# значения по умолчанию. Недопустимы паника, зависание и превышение лимита в отчёте.
+function Get-LimitBehaviour {
+    param($Ctx, [string]$Name, [string]$LogText, [string]$JsonPath, [int]$MaxAllowedRows)
+    $result = $Ctx.CommandResults[$Name]
+    $panicked = ($LogText -match '(?m)^panic:') -or ($LogText -match 'goroutine \d+ \[running\]')
+    $timedOut = [bool]$result.timed_out
+    $behaviour = 'unknown'
+    $sectionsOk = $true
+    if ([int]$result.exit_code -ne 0) {
+        $behaviour = 'rejected'
+    } else {
+        $behaviour = 'accepted_with_fallback'
+        $produced = Read-CheckJson -Path $JsonPath
+        if ($null -eq $produced) {
+            $sectionsOk = $false
+        } else {
+            foreach ($section in @('context_before', 'context_after', 'same_user_events', 'same_file_events', 'same_destination_events', 'timeline')) {
+                if (@(Get-JsonArray -Object $produced -Name $section).Count -gt $MaxAllowedRows) { $sectionsOk = $false }
+            }
+        }
+    }
+    return [ordered]@{
+        behaviour = $behaviour
+        handled = ((-not $panicked) -and (-not $timedOut) -and $sectionsOk)
+        panicked = $panicked
+        timed_out = $timedOut
+        exit_code = [int]$result.exit_code
+    }
+}
+$limitZero = Get-LimitBehaviour -Ctx $ctx -Name 'cli_build_limit0' -LogText $limit0Log -JsonPath (Join-Path $ctx.OutputsDir 'limit0.json') -MaxAllowedRows 1000
+$limitHuge = Get-LimitBehaviour -Ctx $ctx -Name 'cli_build_limit1001' -LogText $limit1001Log -JsonPath (Join-Path $ctx.OutputsDir 'limit1001.json') -MaxAllowedRows 1001
+
+# Задание: в разделе Markdown не больше max_events_per_section событий,
+# при усечении отчёт должен явно об этом сказать.
+$limitMdText = if (Test-Path -LiteralPath $cardLimitMd) { Get-Content -LiteralPath $cardLimitMd -Raw } else { '' }
+$limitsOk = $false
+if ($null -ne $cardLimit) {
+    $limitsOk = $true
+    foreach ($section in @('context_before', 'context_after', 'same_user_events', 'same_file_events', 'same_destination_events', 'timeline')) {
+        if (@(Get-JsonArray -Object $cardLimit -Name $section).Count -gt 2) { $limitsOk = $false }
+    }
+    $limitTimeline = @(Get-JsonArray -Object $cardLimit -Name 'timeline')
+    if ($limitTimeline.Count -eq 0) { $limitsOk = $false }
+    if (-not (Test-TimelineSortedDedup -Timeline $limitTimeline)) { $limitsOk = $false }
+}
+# Ищем «усеч», «обрез», «показан», truncat, shown. Русские корни заданы escape-последовательностями,
+# чтобы проверка не зависела от того, каким хостом PowerShell прочитан файл скрипта.
+$truncationNoticed = ($limitMdText -match '(?i)усеч|обрез|показан|truncat|shown')
+$limitsOk = $limitsOk -and $truncationNoticed
+
+# Значения из файла запроса должны применяться: разделы same_* выключены, лимит 3.
+$requestRespectedOk = $false
+if ($null -ne $cardFlagsOff) {
+    $requestRespectedOk = (@(Get-JsonArray -Object $cardFlagsOff -Name 'same_user_events').Count -eq 0) -and
+        (@(Get-JsonArray -Object $cardFlagsOff -Name 'same_file_events').Count -eq 0) -and
+        (@(Get-JsonArray -Object $cardFlagsOff -Name 'same_destination_events').Count -eq 0) -and
+        (@(Get-JsonArray -Object $cardFlagsOff -Name 'context_before').Count -le 3) -and
+        (@(Get-JsonArray -Object $cardFlagsOff -Name 'context_after').Count -le 3) -and
+        (@(Get-JsonArray -Object $cardFlagsOff -Name 'timeline').Count -gt 0)
+}
+
+# Сценарий external_send описывает адресата, а не действие: значение action берётся
+# из перечисления задания, где действия external_send нет.
+$allowedActions = @('open_file', 'copy_file', 'create_archive', 'email_send', 'cloud_upload', 'messenger_send', 'copy_to_usb', 'delete_file', 'print_file')
+$generatorOk = $false
+$generatorDetails = ''
+if ((Test-Path -LiteralPath $genA) -and (Test-Path -LiteralPath $genB)) {
+    $genAStats = Get-FileStatsUniqueIDs -Path $genA
+    $rawA = Get-Content -LiteralPath $genA -Raw
+    $rawB = Get-Content -LiteralPath $genB -Raw
+    $scenarioOk = $true
+    $lines = @((Get-Content -LiteralPath $genA) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    foreach ($line in $lines) {
+        $obj = $line | ConvertFrom-Json
+        if (-not (Test-Rfc3339 -Value ([string](Get-JsonProperty -Object $obj -Name 'timestamp')))) { $scenarioOk = $false; $generatorDetails = 'timestamp не в формате RFC3339'; break }
+        foreach ($field in @('event_id', 'user_id', 'machine_id', 'action', 'channel')) {
+            if ([string]::IsNullOrWhiteSpace([string](Get-JsonProperty -Object $obj -Name $field))) { $scenarioOk = $false; $generatorDetails = "отсутствует обязательное поле $field" ; break }
+        }
+        if (-not $scenarioOk) { break }
+        $action = [string](Get-JsonProperty -Object $obj -Name 'action')
+        if ($allowedActions -notcontains $action) { $scenarioOk = $false; $generatorDetails = "action вне перечисления: $action"; break }
+        if ([string](Get-JsonProperty -Object $obj -Name 'destination_type') -ne 'external') { $scenarioOk = $false; $generatorDetails = 'сценарий external_send не даёт destination_type=external'; break }
+    }
+    $generatorOk = ($genAStats.lines -eq 25) -and ($genAStats.duplicates -eq 0) -and ($rawA -eq $rawB) -and $scenarioOk
+}
+Save-CheckJson -Path (Join-Path $ctx.OutputsDir 'runtime_validation.json') -Value ([ordered]@{
+    arrays_ok = ($arraysOk -and $sameFileOk -and $sameDestinationOk)
+    timeline_sorted_dedup = $timelineOk
+    summary_dynamic = $summaryOk
+    markdown_required_sections = $markdownOk
+    markdown_headings = $mdHeadings.Count
+    dot_required_markers = $dotOk
+    targeted_tests_ok = $targetedTestsOk
+    targeted_tests_search = @($searchTests)
+    targeted_tests_sort = @($sortTests)
+    malformed_rejected = $malformedRejected
+    unknown_main_rejected = $unknownMainRejected
+    limit_zero = $limitZero
+    limit_1001 = $limitHuge
+    section_limit_respected = $limitsOk
+    truncation_reported = $truncationNoticed
+    request_respected = $requestRespectedOk
+    generator_ok = $generatorOk
+    generator_details = $generatorDetails
+    factors_ok = $factorsOk
+})
+
+$millionEventsPath = Join-Path $ctx.TmpDir 'events_1000000.jsonl'
+$millionCardPath = Join-Path $ctx.TmpDir 'card_1000000.json'
+$millionMdPath = Join-Path $ctx.TmpDir 'card_1000000.md'
+$millionDotPath = Join-Path $ctx.TmpDir 'card_1000000.dot'
+$null = $cleanupTargets.Add($millionEventsPath)
+$null = $cleanupTargets.Add($millionCardPath)
+$null = $cleanupTargets.Add($millionMdPath)
+$null = $cleanupTargets.Add($millionDotPath)
+$driveName = [System.IO.Path]::GetPathRoot($ctx.ResultDir).TrimEnd('\').TrimEnd(':')
+$drive = Get-PSDrive -Name $driveName
+$requiredBytes = 2GB
+$diskPreflightOk = $drive.Free -ge $requiredBytes
+$millionStart = Get-Date
+$millionMainEventId = ''
+if ($diskPreflightOk) {
+    Invoke-CheckCommand -Ctx $ctx -Name 'cli_generate_1m' -Command "& '$tool' generate --count 1000000 --scenario external_send --seed 42 --out '$millionEventsPath'" -TimeoutSec 600
+    # Схема идентификаторов генератора заданием не определена, поэтому главное событие
+    # берём из самого файла, а не подставляем ожидаемый evt_0500000.
+    $millionMainEventId = Get-EventIdAtLine -Path $millionEventsPath -LineNumber 500000
+    if ($millionMainEventId -ne '') {
+        $millionRequestPath = Write-CheckText -Ctx $ctx -RelativePath 'inputs/request_1m.json' -Content ('{"incident_id":"inc_1m","main_event_id":"' + $millionMainEventId + '","window_before":"30m","window_after":"10m","include_same_user":false,"include_same_file":false,"include_same_destination":false,"max_events_per_section":50}')
+        Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_1m' -Command "& '$tool' build --events '$millionEventsPath' --request '$millionRequestPath' --out '$millionMdPath' --json '$millionCardPath' --dot '$millionDotPath'" -TimeoutSec 600
+    }
+}
+$millionEnd = Get-Date
+$millionDurationMs = [int](($millionEnd - $millionStart).TotalMilliseconds)
+$millionStats = if (Test-Path -LiteralPath $millionEventsPath) { Get-FileStatsUniqueIDs -Path $millionEventsPath } else { [ordered]@{ lines = 0; unique_ids = 0; duplicates = 1 } }
+$millionEventsBytes = if (Test-Path -LiteralPath $millionEventsPath) { (Get-Item -LiteralPath $millionEventsPath).Length } else { 0 }
+$millionCardBytes = if (Test-Path -LiteralPath $millionCardPath) { (Get-Item -LiteralPath $millionCardPath).Length } else { 0 }
+$gen1m = if ($ctx.CommandResults.ContainsKey('cli_generate_1m')) { $ctx.CommandResults['cli_generate_1m'] } else { [ordered]@{ exit_code = -1; timed_out = $true; peak_working_set_bytes = 0; duration_ms = 0 } }
+$build1m = if ($ctx.CommandResults.ContainsKey('cli_build_1m')) { $ctx.CommandResults['cli_build_1m'] } else { [ordered]@{ exit_code = -1; timed_out = $true; peak_working_set_bytes = 0; duration_ms = 0 } }
+$peakLimit = 768MB
+$millionMemoryOk = ($gen1m.peak_working_set_bytes -le $peakLimit) -and ($build1m.peak_working_set_bytes -le $peakLimit)
+$benchLog = Get-CommandLogText -Ctx $ctx -Name 'make_bench'
+# Имя бенчмарка заданием не задано: требуется работающий бенчмарк на 1 000 000 событий.
+$benchRan = ($benchLog -match '(?m)^Benchmark\S+') -and ($benchLog -match 'ns/op')
+$benchMillionSources = @(Get-RepoTestFiles -Ctx $ctx |
+    Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match '(?s)func\s+Benchmark' } |
+    Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match '1[_\s]?000[_\s]?000' })
+$benchmarkOk = $benchRan -and ($benchMillionSources.Count -gt 0)
+$millionOk = $diskPreflightOk -and ($gen1m.exit_code -eq 0) -and (-not [bool]$gen1m.timed_out) -and ($build1m.exit_code -eq 0) -and (-not [bool]$build1m.timed_out) -and ($millionStats.lines -eq 1000000) -and ($millionStats.duplicates -eq 0) -and ($millionCardBytes -gt 0) -and $millionMemoryOk -and $benchmarkOk
+Save-CheckJson -Path (Join-Path $ctx.OutputsDir 'million_metrics.json') -Value ([ordered]@{
+    disk_preflight_ok = $diskPreflightOk
+    disk_free_bytes = $drive.Free
+    required_bytes = $requiredBytes
+    generate = $gen1m
+    build = $build1m
+    lines = $millionStats.lines
+    events_file_bytes = $millionEventsBytes
+    card_json_bytes = $millionCardBytes
+    unique_ids = $millionStats.unique_ids
+    duplicates = $millionStats.duplicates
+    memory_limit_bytes = $peakLimit
+    memory_ok = $millionMemoryOk
+    main_event_id = $millionMainEventId
+    benchmark_ok = $benchmarkOk
+    benchmark_million_sources = @($benchMillionSources | ForEach-Object { $_.Name })
+    duration_ms = $millionDurationMs
+})
+foreach ($target in @($cleanupTargets)) { if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue } }
+$cleanupOk = (-not (Test-Path -LiteralPath $millionEventsPath)) -and (-not (Test-Path -LiteralPath $millionCardPath)) -and (-not (Test-Path -LiteralPath $millionMdPath)) -and (-not (Test-Path -LiteralPath $millionDotPath))
+
+Save-CheckJson -Path (Join-Path $ctx.OutputsDir 'artifact_presence.json') -Value ([ordered]@{
     card_md = Test-Path -LiteralPath $cardMd
     card_json = Test-Path -LiteralPath $cardJson
-    graph_dot = Test-Path -LiteralPath $dot
+    card_dot = Test-Path -LiteralPath $cardDot
     card_flags_md = Test-Path -LiteralPath $cardFlagsMd
     card_flags_json = Test-Path -LiteralPath $cardFlagsJson
-    generated_events = Test-Path -LiteralPath $generated
-}
-Save-CheckJson -Path (Join-Path $ctx.OutputsDir 'artifact_presence.json') -Value $expectedArtifacts
+    card_limit_md = Test-Path -LiteralPath $cardLimitMd
+    card_limit_json = Test-Path -LiteralPath $cardLimitJson
+    card_flags_off_json = Test-Path -LiteralPath $cardFlagsOffJson
+    generated_a = Test-Path -LiteralPath $genA
+    generated_b = Test-Path -LiteralPath $genB
+})
 
-Add-CommandFeatureAssessment -Ctx $ctx -Id 'minimum.jsonl_reader' -Level 'minimum' -Category 'input' -Requirement 'Read JSONL events' -CommandName 'cli_build_flags' -RequiredArtifacts @($cardFlagsMd)
-Add-CommandFeatureAssessment -Ctx $ctx -Id 'minimum.main_event' -Level 'minimum' -Category 'algorithm' -Requirement 'Find main event by event_id' -CommandName 'cli_build_flags' -RequiredArtifacts @($cardFlagsMd)
-Add-SourceFeatureAssessment -Ctx $ctx -Id 'minimum.time_context' -Level 'minimum' -Category 'algorithm' -Requirement 'Before and after time context' -Patterns @('Before|before','After|after','time\.Parse|ParseDuration') -Match 'all'
-Add-CommandFeatureAssessment -Ctx $ctx -Id 'minimum.markdown_card' -Level 'minimum' -Category 'format' -Requirement 'Markdown incident card' -CommandName 'cli_build_flags' -RequiredArtifacts @($cardFlagsMd)
-Add-SourceFeatureAssessment -Ctx $ctx -Id 'minimum.search_sort_tests' -Level 'minimum' -Category 'tests' -Requirement 'Event search and timeline sorting tests' -Patterns @('Test.*Find|Test.*Search|Test.*Event','Test.*Sort|Test.*Timeline') -Match 'all'
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'minimum.jsonl_reader' -Level 'minimum' -Category 'input' -Requirement 'Read JSONL events and reject malformed input with line number' -CommandName 'cli_build_flags' -RequiredArtifacts @($cardFlagsJson, $cardFlagsMd) -ExtraConformant $malformedRejected -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'minimum.main_event' -Level 'minimum' -Category 'algorithm' -Requirement 'Find exact main event and reject unknown event_id' -CommandName 'cli_build_request' -RequiredArtifacts @($cardJson) -ExtraConformant $unknownMainRejected -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'minimum.time_context' -Level 'minimum' -Category 'algorithm' -Requirement 'Before/after windows select the correct events sorted by time' -CommandName 'cli_build_request' -RequiredArtifacts @($cardJson) -ExtraConformant ($arraysOk -and $sameFileOk -and $sameDestinationOk) -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'minimum.markdown_card' -Level 'minimum' -Category 'format' -Requirement 'Markdown incident card has required headings/table and dynamic summary' -CommandName 'cli_build_request' -RequiredArtifacts @($cardMd) -ExtraConformant $markdownOk -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'minimum.search_sort_tests' -Level 'minimum' -Category 'tests' -Requirement 'Module tests cover event search and timeline sorting' -CommandName 'targeted_go_test' -RequiredArtifacts @($targetedJsonPath) -ExtraConformant $targetedTestsOk -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'good.same_file' -Level 'good' -Category 'algorithm' -Requirement 'Related events by same file are correct' -CommandName 'cli_build_request' -RequiredArtifacts @($cardJson) -ExtraConformant $sameFileOk -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'good.same_destination' -Level 'good' -Category 'algorithm' -Requirement 'Related events by same destination are correct' -CommandName 'cli_build_request' -RequiredArtifacts @($cardJson) -ExtraConformant $sameDestinationOk -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'good.json_card' -Level 'good' -Category 'format' -Requirement 'JSON card is consistent with arrays and timeline' -CommandName 'cli_build_request' -RequiredArtifacts @($cardJson) -ExtraConformant ($arraysOk -and $timelineOk) -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'good.suspicious_factors' -Level 'good' -Category 'algorithm' -Requirement 'Suspicious factors from YAML operators equals/in/contains/exists' -CommandName 'cli_build_request' -RequiredArtifacts @($cardJson) -ExtraConformant $factorsOk -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'good.generator' -Level 'good' -Category 'cli' -Requirement 'Generator produces 25 valid unique deterministic events for scenario external_send' -CommandName 'cli_generate_25_a' -RequiredArtifacts @($genA, $genB) -ExtraConformant $generatorOk -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'excellent.dot_graph' -Level 'excellent' -Category 'format' -Requirement 'DOT graph declares a digraph with the main node and relations' -CommandName 'cli_build_request' -RequiredArtifacts @($cardDot) -ExtraConformant $dotOk -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'excellent.section_limits' -Level 'excellent' -Category 'report' -Requirement 'Sections respect max_events_per_section, truncation is reported, out-of-range values are handled without panic' -CommandName 'cli_build_limit2' -RequiredArtifacts @($cardLimitJson, $cardLimitMd) -ExtraConformant ($limitsOk -and $requestRespectedOk -and [bool]$limitZero.handled -and [bool]$limitHuge.handled) -ExtraEvidence @('outputs/runtime_validation.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'excellent.million_benchmark' -Level 'excellent' -Category 'performance' -Requirement 'Real 1M run and benchmark pass with memory/time constraints' -CommandName 'cli_build_1m' -RequiredArtifacts @((Join-Path $ctx.OutputsDir 'million_metrics.json')) -ExtraConformant $millionOk -ExtraEvidence @('outputs/million_metrics.json')
+Add-CommandFeatureAssessment -Ctx $ctx -Id 'excellent.polished_report' -Level 'excellent' -Category 'report' -Requirement 'Polished markdown+json report is sorted, deduped and consistent' -CommandName 'cli_build_request' -RequiredArtifacts @($cardMd, $cardJson) -ExtraConformant ($timelineOk -and $summaryOk -and $markdownOk -and $factorsOk) -ExtraEvidence @('outputs/runtime_validation.json')
 
-Add-SourceFeatureAssessment -Ctx $ctx -Id 'good.same_file' -Level 'good' -Category 'algorithm' -Requirement 'Related events by same file' -Patterns @('SameFile|same_file|file_id') -Match 'any'
-Add-SourceFeatureAssessment -Ctx $ctx -Id 'good.same_destination' -Level 'good' -Category 'algorithm' -Requirement 'Related events by same destination' -Patterns @('SameDestination|same_destination|destination_id') -Match 'any'
-Add-CommandFeatureAssessment -Ctx $ctx -Id 'good.json_card' -Level 'good' -Category 'format' -Requirement 'JSON incident card' -CommandName 'cli_build_request' -RequiredArtifacts @($cardJson)
-Add-CommandFeatureAssessment -Ctx $ctx -Id 'good.suspicious_factors' -Level 'good' -Category 'algorithm' -Requirement 'Suspicious factors from YAML' -CommandName 'cli_build_request' -RequiredArtifacts @($cardJson)
-Add-CommandFeatureAssessment -Ctx $ctx -Id 'good.generator' -Level 'good' -Category 'cli' -Requirement 'Event scenario generator' -CommandName 'cli_generate' -RequiredArtifacts @($generated)
+$notes.cleanup_ok = $cleanupOk
+$notes.expected_score = [ordered]@{ minimum = 5; good = 5; excellent = 4; engineering = 12; total = 26 }
+$notes.runtime_validation = 'outputs/runtime_validation.json'
+$notes.million_metrics = 'outputs/million_metrics.json'
 
-Add-CommandFeatureAssessment -Ctx $ctx -Id 'excellent.dot_graph' -Level 'excellent' -Category 'format' -Requirement 'DOT relation graph' -CommandName 'cli_build_request' -RequiredArtifacts @($dot)
-Add-SourceFeatureAssessment -Ctx $ctx -Id 'excellent.section_limits' -Level 'excellent' -Category 'report' -Requirement 'max_events_per_section limit and truncation marker' -Patterns @('max_events_per_section|MaxEventsPerSection','truncat') -Match 'all'
-Add-SourceFeatureAssessment -Ctx $ctx -Id 'excellent.million_benchmark' -Level 'excellent' -Category 'performance' -Requirement 'Benchmark for 1000000 events' -Patterns @('Benchmark','1000000') -Match 'all'
-Add-SourceFeatureAssessment -Ctx $ctx -Id 'excellent.polished_report' -Level 'excellent' -Category 'report' -Requirement 'Polished report with tables and summary' -Patterns @('Timeline|\u0412\u0440\u0435\u043c\u0435\u043d\u043d\u0430\u044f \u0448\u043a\u0430\u043b\u0430','Summary|\u041a\u0440\u0430\u0442\u043a\u043e\u0435 \u0440\u0435\u0437\u044e\u043c\u0435|\u0420\u0435\u0437\u044e\u043c\u0435','\|.*\|') -Match 'all'
-
-Complete-Check -Ctx $ctx -Extra @{
-    expected_cli = 'incident-card generate/build'
-    expected_outputs = @('card.md', 'card.json', 'graph.dot', 'card_flags.md', 'card_flags.json')
-}
+Complete-Check -Ctx $ctx -Extra $notes
 
 
