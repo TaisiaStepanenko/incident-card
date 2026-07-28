@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$OutRoot = '',
     [switch]$AllowDirty
 )
@@ -42,13 +42,32 @@ function New-CheckContext {
     foreach ($dir in @($ctx.ResultDir, $ctx.LogsDir, $ctx.InputsDir, $ctx.OutputsDir, $ctx.MetaDir, $ctx.TmpDir)) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
     }
-    '' | Set-Content -LiteralPath $ctx.CommandsPath -Encoding UTF8
+    Write-CheckFileText -Path $ctx.CommandsPath -Content ''
     return $ctx
+}
+
+# Кодировки задаём явно: `Set-Content -Encoding UTF8` добавляет BOM в Windows PowerShell 5.1
+# и не добавляет в PowerShell 7, а `Get-Content` без -Encoding читает файл без BOM как ANSI.
+# Из-за этого одни и те же артефакты решения давали разный результат проверки на разных хостах.
+$script:Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$script:Utf8Bom = New-Object System.Text.UTF8Encoding($true)
+
+function Write-CheckFileText {
+    param([string]$Path, [string]$Content, [switch]$WithBom)
+    $encoding = if ($WithBom) { $script:Utf8Bom } else { $script:Utf8NoBom }
+    [System.IO.File]::WriteAllText($Path, $Content, $encoding)
+}
+
+# Читает UTF-8 и снимает BOM, если он есть.
+function Get-CheckFileText {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    return [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
 }
 
 function Save-CheckJson {
     param([string]$Path, $Value)
-    ($Value | ConvertTo-Json -Depth 50) | Set-Content -LiteralPath $Path -Encoding UTF8
+    Write-CheckFileText -Path $Path -Content (($Value | ConvertTo-Json -Depth 50) + [Environment]::NewLine)
 }
 
 function Write-CheckText {
@@ -56,7 +75,8 @@ function Write-CheckText {
     $path = Join-Path $Ctx.ResultDir $RelativePath
     $parent = Split-Path -Parent $path
     if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
-    Set-Content -LiteralPath $path -Value $Content -Encoding UTF8
+    # Входные данные для решения — без BOM: иначе байты входа зависят от хоста проверки.
+    Write-CheckFileText -Path $path -Content $Content
     return $path
 }
 
@@ -95,6 +115,20 @@ function Get-ProcessTreePeakWorkingSet {
     return $total
 }
 
+# Приоритет у кода, записанного самим раннером; хостовое значение — только резервный источник.
+# Если код не получен ни оттуда, ни отсюда, возвращаем 1, а не 0: молчаливый успех недопустим.
+function Resolve-CheckExitCode {
+    param([string]$ExitCodePath, [bool]$TimedOut, $Fallback)
+    if ($TimedOut) { return 124 }
+    if (Test-Path -LiteralPath $ExitCodePath) {
+        $raw = (Get-CheckFileText -Path $ExitCodePath).Trim()
+        $parsed = 0
+        if ([int]::TryParse($raw, [ref]$parsed)) { return $parsed }
+    }
+    if ($null -ne $Fallback -and $Fallback -ne '') { return [int]$Fallback }
+    return 1
+}
+
 function Invoke-CheckCommand {
     param($Ctx, [string]$Name, [string]$Command, [string]$WorkingDirectory = '', [int]$TimeoutSec = 0)
     if ($WorkingDirectory -eq '') { $WorkingDirectory = $Ctx.RepoRoot }
@@ -102,6 +136,11 @@ function Invoke-CheckCommand {
     $runnerPath = Join-Path $Ctx.TmpDir "$safe.ps1"
     $stdoutPath = Join-Path $Ctx.TmpDir "$safe.stdout.log"
     $stderrPath = Join-Path $Ctx.TmpDir "$safe.stderr.log"
+    # Код возврата раннер записывает сам: под Windows PowerShell 5.1 `Start-Process -PassThru`
+    # возвращает объект с пустым ExitCode, а `[int]$null` даёт 0, из-за чего любая упавшая
+    # команда с таймаутом попадала в отчёт как успешная.
+    $exitCodePath = Join-Path $Ctx.TmpDir "$safe.exitcode"
+    if (Test-Path -LiteralPath $exitCodePath) { Remove-Item -LiteralPath $exitCodePath -Force }
     $logPath = Join-Path $Ctx.LogsDir "$safe.log"
     $started = Get-Date
 
@@ -117,13 +156,16 @@ function Invoke-CheckCommand {
         '    if ($null -eq $exitCode) {'
         '        if ($success -and $Error.Count -eq 0) { $exitCode = 0 } else { $exitCode = 1 }'
         '    }'
+        "    [System.IO.File]::WriteAllText('$($exitCodePath.Replace("'", "''"))', [string][int]`$exitCode)"
         '    exit $exitCode'
         '} catch {'
         '    Write-Error $_'
+        "    [System.IO.File]::WriteAllText('$($exitCodePath.Replace("'", "''"))', '1')"
         '    exit 1'
         '}'
     ) -join "`r`n"
-    Set-Content -LiteralPath $runnerPath -Value $runner -Encoding UTF8
+    # Раннер исполняет powershell.exe (5.1), которому нужен BOM, иначе пути с кириллицей ломаются.
+    Write-CheckFileText -Path $runnerPath -Content $runner -WithBom
     [long]$peak = 0
     $timedOut = $false
     $stdout = ''
@@ -134,7 +176,7 @@ function Invoke-CheckCommand {
         $ErrorActionPreference = 'Continue'
         $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runnerPath 2>&1
         $ErrorActionPreference = $prevErrorAction
-        $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+        $exitCode = Resolve-CheckExitCode -ExitCodePath $exitCodePath -TimedOut $false -Fallback $LASTEXITCODE
         $stderr = ($output | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | Out-String)
         $stdout = ($output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | Out-String)
     } else {
@@ -157,18 +199,14 @@ function Invoke-CheckCommand {
             Start-Sleep -Milliseconds 200
         }
         $proc.WaitForExit()
-        $exitCode = if ($timedOut) {
-            124
-        } else {
-            $proc.Refresh()
-            [int]$proc.ExitCode
-        }
+        $proc.Refresh()
+        $exitCode = Resolve-CheckExitCode -ExitCodePath $exitCodePath -TimedOut $timedOut -Fallback $proc.ExitCode
         $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
         $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { '' }
     }
     $ended = Get-Date
 
-    @(
+    $logText = @(
         "name: $Name"
         "working_directory: $WorkingDirectory"
         "command:"
@@ -185,7 +223,8 @@ function Invoke-CheckCommand {
         ''
         'stderr:'
         $stderr
-    ) | Set-Content -LiteralPath $logPath -Encoding UTF8
+    ) -join [Environment]::NewLine
+    Write-CheckFileText -Path $logPath -Content $logText
 
     $record = [ordered]@{
         name = $Name
@@ -246,7 +285,7 @@ function Add-BooleanFeatureAssessment {
 function Read-CheckJson {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) { return $null }
-    $raw = Get-Content -LiteralPath $Path -Raw
+    $raw = Get-CheckFileText -Path $Path
     if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
     return $raw | ConvertFrom-Json
 }
@@ -366,8 +405,7 @@ function Get-CommandLogText {
     param($Ctx, [string]$Name)
     if (-not $Ctx.CommandResults.ContainsKey($Name)) { return '' }
     $path = Join-Path $Ctx.ResultDir ([string]$Ctx.CommandResults[$Name].log)
-    if (-not (Test-Path -LiteralPath $path)) { return '' }
-    return Get-Content -LiteralPath $path -Raw
+    return Get-CheckFileText -Path $path
 }
 
 function Get-FileStatsUniqueIDs {
@@ -563,8 +601,10 @@ Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_request' -Command "& '$tool' buil
 Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_flags' -Command "& '$tool' build --events '$eventsPath' --event-id evt_main --before 30m --after 10m --out '$cardFlagsMd' --json '$cardFlagsJson'"
 Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_limit2' -Command "& '$tool' build --events '$eventsPath' --request '$requestLimitPath' --out '$cardLimitMd' --json '$cardLimitJson'"
 Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_flags_off' -Command "& '$tool' build --events '$eventsPath' --request '$requestFlagsOffPath' --json '$cardFlagsOffJson'"
-Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_malformed' -Command "& '$tool' build --events '$badEventsPath' --event-id evt_main --out '$($ctx.OutputsDir)\invalid_malformed.md'; if (`$LASTEXITCODE -ne 0) { exit 0 } else { Write-Error 'expected malformed rejection'; exit 1 }"
-Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_unknown_main' -Command "& '$tool' build --events '$eventsPath' --event-id evt_unknown --out '$($ctx.OutputsDir)\invalid_unknown.md'; if (`$LASTEXITCODE -ne 0) { exit 0 } else { Write-Error 'expected unknown main rejection'; exit 1 }"
+# Негативные сценарии запускаем без обёрток с `exit`: ожидаемый ненулевой код возврата
+# проверяется ниже по записанному значению. Обёртка ещё и мешала раннеру зафиксировать код.
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_malformed' -Command "& '$tool' build --events '$badEventsPath' --event-id evt_main --out '$($ctx.OutputsDir)\invalid_malformed.md'"
+Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_unknown_main' -Command "& '$tool' build --events '$eventsPath' --event-id evt_unknown --out '$($ctx.OutputsDir)\invalid_unknown.md'"
 # Задание не требует отвергать значения вне диапазона, поэтому фиксируем только устойчивость:
 # без паники и без зависания, поведение записываем в runtime_validation.json.
 Invoke-CheckCommand -Ctx $ctx -Name 'cli_build_limit0' -Command "& '$tool' build --events '$eventsPath' --request '$requestLimitZeroPath' --out '$($ctx.OutputsDir)\limit0.md' --json '$($ctx.OutputsDir)\limit0.json'" -TimeoutSec 120
@@ -575,9 +615,9 @@ Invoke-CheckCommand -Ctx $ctx -Name 'cli_generate_25_b' -Command "& '$tool' gene
 $card = Read-CheckJson -Path $cardJson
 $cardLimit = Read-CheckJson -Path $cardLimitJson
 $cardFlagsOff = Read-CheckJson -Path $cardFlagsOffJson
-$cardMdText = if (Test-Path -LiteralPath $cardMd) { Get-Content -LiteralPath $cardMd -Raw } else { '' }
-$cardDotText = if (Test-Path -LiteralPath $cardDot) { Get-Content -LiteralPath $cardDot -Raw } else { '' }
-$targetedText = if (Test-Path -LiteralPath $targetedJsonPath) { Get-Content -LiteralPath $targetedJsonPath -Raw } else { '' }
+$cardMdText = Get-CheckFileText -Path $cardMd
+$cardDotText = Get-CheckFileText -Path $cardDot
+$targetedText = Get-CheckFileText -Path $targetedJsonPath
 
 # Имена полей взяты из примера выходного JSON в задании.
 # Граница временного окна и включение главного события в разделы same_* заданием не оговорены,
@@ -647,8 +687,8 @@ $unknownMainLog = Get-CommandLogText -Ctx $ctx -Name 'cli_build_unknown_main'
 $limit0Log = Get-CommandLogText -Ctx $ctx -Name 'cli_build_limit0'
 $limit1001Log = Get-CommandLogText -Ctx $ctx -Name 'cli_build_limit1001'
 # Язык и формулировка сообщения заданием не заданы; требуется указание файла, строки или поля.
-$malformedRejected = ($ctx.CommandResults['cli_build_malformed'].exit_code -eq 0) -and ($malformedLog -match 'events_bad\.jsonl[:\s]*2\b')
-$unknownMainRejected = ($ctx.CommandResults['cli_build_unknown_main'].exit_code -eq 0) -and ($unknownMainLog -match 'evt_unknown')
+$malformedRejected = ([int]$ctx.CommandResults['cli_build_malformed'].exit_code -ne 0) -and ($malformedLog -match 'events_bad\.jsonl[:\s]*2\b')
+$unknownMainRejected = ([int]$ctx.CommandResults['cli_build_unknown_main'].exit_code -ne 0) -and ($unknownMainLog -match 'evt_unknown')
 # Отвергать значение вне диапазона задание не обязывает: допустимы и явная ошибка, и подстановка
 # значения по умолчанию. Недопустимы паника, зависание и превышение лимита в отчёте.
 function Get-LimitBehaviour {
@@ -684,7 +724,7 @@ $limitHuge = Get-LimitBehaviour -Ctx $ctx -Name 'cli_build_limit1001' -LogText $
 
 # Задание: в разделе Markdown не больше max_events_per_section событий,
 # при усечении отчёт должен явно об этом сказать.
-$limitMdText = if (Test-Path -LiteralPath $cardLimitMd) { Get-Content -LiteralPath $cardLimitMd -Raw } else { '' }
+$limitMdText = Get-CheckFileText -Path $cardLimitMd
 $limitsOk = $false
 if ($null -ne $cardLimit) {
     $limitsOk = $true
@@ -695,8 +735,9 @@ if ($null -ne $cardLimit) {
     if ($limitTimeline.Count -eq 0) { $limitsOk = $false }
     if (-not (Test-TimelineSortedDedup -Timeline $limitTimeline)) { $limitsOk = $false }
 }
-# Ищем «усеч», «обрез», «показан», truncat, shown. Русские корни заданы escape-последовательностями,
-# чтобы проверка не зависела от того, каким хостом PowerShell прочитан файл скрипта.
+# Ищем «усеч», «обрез», «показан», truncat, shown.
+# Файл обязан храниться в UTF-8 с BOM: Windows PowerShell 5.1 читает UTF-8 без BOM как ANSI,
+# и тогда этот шаблон, как и весь скрипт, разбирается неверно.
 $truncationNoticed = ($limitMdText -match '(?i)усеч|обрез|показан|truncat|shown')
 $limitsOk = $limitsOk -and $truncationNoticed
 
@@ -718,10 +759,11 @@ $generatorOk = $false
 $generatorDetails = ''
 if ((Test-Path -LiteralPath $genA) -and (Test-Path -LiteralPath $genB)) {
     $genAStats = Get-FileStatsUniqueIDs -Path $genA
-    $rawA = Get-Content -LiteralPath $genA -Raw
-    $rawB = Get-Content -LiteralPath $genB -Raw
+    # Детерминированность сравниваем по байтам, а не по декодированному тексту.
+    $rawA = (Get-FileHash -LiteralPath $genA -Algorithm SHA256).Hash
+    $rawB = (Get-FileHash -LiteralPath $genB -Algorithm SHA256).Hash
     $scenarioOk = $true
-    $lines = @((Get-Content -LiteralPath $genA) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $lines = @((Get-CheckFileText -Path $genA) -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     foreach ($line in $lines) {
         $obj = $line | ConvertFrom-Json
         if (-not (Test-Rfc3339 -Value ([string](Get-JsonProperty -Object $obj -Name 'timestamp')))) { $scenarioOk = $false; $generatorDetails = 'timestamp не в формате RFC3339'; break }
