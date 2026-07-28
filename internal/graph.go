@@ -77,7 +77,7 @@ func addEventEdges(graph *strings.Builder, event *Event, nodes, edges map[string
 	}
 
 	// узел и ребро файла
-	if event.FileID != "" && event.FileID != "" {
+	if event.FileID != "" {
 		fileNode := event.FileID
 		if !nodes[fileNode] {
 			file := event.FileID
@@ -95,7 +95,7 @@ func addEventEdges(graph *strings.Builder, event *Event, nodes, edges map[string
 	}
 
 	// узел и ребро адресата
-	if event.DestinationID != "" && event.DestinationID != "" {
+	if event.DestinationID != "" {
 		destinationNode := event.DestinationID
 		if !nodes[destinationNode] {
 			destination := event.DestinationID

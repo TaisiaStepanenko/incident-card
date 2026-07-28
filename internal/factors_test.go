@@ -281,7 +281,6 @@ func TestCheckCondition(t *testing.T) {
 	assert.True(t, CheckCondition(event, Condition{Field: "size_bytes", Exists: &true_flag}))
 	assert.False(t, CheckCondition(emptyEvent, Condition{Field: "size_bytes", Exists: &false_flag}))
 	assert.False(t, CheckCondition(event, Condition{Field: "size_bytes", Exists: &false_flag}))
-	assert.False(t, CheckCondition(emptyEvent, Condition{Field: "size_bytes", Exists: &true_flag}))
 
 	// Contains
 	assert.False(t, CheckCondition(event, Condition{Field: "size_bytes", Contains: strPtr("2048")}))

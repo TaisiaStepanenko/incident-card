@@ -328,13 +328,6 @@ func CheckCondition(event *Event, cond Condition) bool {
 
 	// Поле типа *int64
 	case "size_bytes":
-		if event.SizeBytes == 0 {
-			if cond.Exists != nil && *cond.Exists {
-				return false
-			}
-			return false
-		}
-
 		if cond.Exists != nil && *cond.Exists && event.SizeBytes >= 0 {
 			return true
 		}
