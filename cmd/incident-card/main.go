@@ -29,7 +29,11 @@ func main() {
 	requestFile := buildCommand.String("request", "", "JSON-файл, содержащий параметры запроса")
 	factorsFile := buildCommand.String("factors", "", "YAML-файл, содержащий правила подозрительных факторов")
 	dotFile := buildCommand.String("dot", "", "выходной DOT-файл для графа связей")
-
+	includeSameUser := buildCommand.Bool("include-same-user", true, "включать события того же пользователя")
+	includeSameFile := buildCommand.Bool("include-same-file", false, "включать события с тем же файлом")
+	includeSameDestination := buildCommand.Bool("include-same-destination", false, "включать события с тем же адресатом")
+	maxEventsPerSection := buildCommand.Int("max-events-per-section", 50, "максимальное число событий в разделе (1-1000)")
+	
 	// Флаги команды generate (пока без переменных)
 	count := generateCommand.Int("count", 100000, "количество событий")
 	scenario := generateCommand.String("scenario", "external_send", "сценарий")
@@ -52,6 +56,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Ошибка парсинга флагов команды build: %v\n", err)
 			os.Exit(1)
 		}
+
+		flagSet := make(map[string]bool)
+		buildCommand.Visit((func(f *flag.Flag) {
+			flagSet[f.Name] = true
+		}))
 
 		// Проверяем передали файл с событиями, без него не можем продолжать работу
 		if *eventsFile == "" {
@@ -109,10 +118,21 @@ func main() {
 			req.IncludeSameDestination = &defaultFalse
 		}
 
-		limit := req.MaxEventsPerSection
-		if limit == 0 {
-			limit = 50
+		if (flagSet["include-same-user"]) {
+			req.IncludeSameUser = includeSameUser
 		}
+		if (flagSet["include-same-file"]) {
+			req.IncludeSameFile = includeSameFile
+		}
+		if (flagSet["include-same-destination"]) {
+			req.IncludeSameDestination = includeSameDestination
+		}
+		if (flagSet["max-events-per-section"]) {
+			req.MaxEventsPerSection = *maxEventsPerSection
+		}
+
+		limit := req.MaxEventsPerSection
+
 		events, index, err := internal.ReadEvents(*eventsFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
