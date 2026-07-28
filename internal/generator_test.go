@@ -30,7 +30,7 @@ func TestGenerateEventsExternalSendMinCount(t *testing.T) {
 	// Проверяем поля главного события
 	assert.Equal(t, "evt_12345", events[0].EventID)
 	assert.Equal(t, "email_send", events[0].Action)
-	assert.Equal(t, "external", *events[0].DestinationType)
+	assert.Equal(t, "external", events[0].DestinationType)
 	assert.Equal(t, "user_017", events[0].UserID)
 }
 
@@ -43,7 +43,7 @@ func TestGenerateEventsUSBCopyMinCount(t *testing.T) {
 	// Проверяем поля главного события
 	assert.Equal(t, "evt_12345", events[0].EventID)
 	assert.Equal(t, "copy_to_usb", events[0].Action)
-	assert.Equal(t, "usb", *events[0].DestinationType)
+	assert.Equal(t, "usb", events[0].DestinationType)
 	assert.Equal(t, "user_017", events[0].UserID)
 }
 
@@ -56,7 +56,7 @@ func TestGenerateEventsCloudUploadMinCount(t *testing.T) {
 	// Проверяем поля главного события
 	assert.Equal(t, "evt_12345", events[0].EventID)
 	assert.Equal(t, "cloud_upload", events[0].Action)
-	assert.Equal(t, "cloud", *events[0].DestinationType)
+	assert.Equal(t, "cloud", events[0].DestinationType)
 	assert.Equal(t, "user_017", events[0].UserID)
 }
 

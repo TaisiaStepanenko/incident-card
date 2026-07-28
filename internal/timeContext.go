@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent string) ([]*Event, error) {
+func GetEventsInTimeRange(events []*Event, mainEventTime, beforeEvent, afterEvent string) ([]*Event, error) {
 	var eventsInRange []*Event
 	var beforeMainTime, afterMainTime time.Duration
 	var err error
@@ -32,8 +32,7 @@ func GetEventsInTimeRange(events []Event, mainEventTime, beforeEvent, afterEvent
 	startTime := mainTime.Add(-beforeMainTime)
 	endTime := mainTime.Add(afterMainTime)
 
-	for i := range events {
-		event := &events[i]
+	for _, event := range events {
 		eventTime, err := time.Parse(time.RFC3339, event.TimeStamp)
 		if err != nil {
 			continue

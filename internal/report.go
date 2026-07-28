@@ -14,7 +14,7 @@ func MakeLimitSlice(events []*Event, limit int) []*Event {
 	return events
 }
 
-func BuildAnswer(mainEvent *Event, index Index, events []Event, fileName string, req Request, rules []Rule) (Answer, error) {
+func BuildAnswer(mainEvent *Event, index Index, events []*Event, fileName string, req Request, rules []Rule) (Answer, error) {
 
 	if (req.MaxEventsPerSection < 1 || req.MaxEventsPerSection > 1000) {
 		return Answer{}, fmt.Errorf("max_events_per_section должен быть в диапозоне [1, 1000]")
@@ -34,14 +34,14 @@ func BuildAnswer(mainEvent *Event, index Index, events []Event, fileName string,
 
 	// События с файлом главного события (если есть в запросе)
 	var fileEvents []*Event
-	if req.IncludeSameFile != nil && *req.IncludeSameFile && mainEvent.FileID != nil {
-		fileEvents = index.GetEventByFile(*mainEvent.FileID)
+	if req.IncludeSameFile != nil && *req.IncludeSameFile && mainEvent.FileID != "" {
+		fileEvents = index.GetEventByFile(mainEvent.FileID)
 	}
 
 	// События адресата главного события (если есть в запросе)
 	var destinationEvents []*Event
-	if req.IncludeSameDestination != nil && *req.IncludeSameDestination && mainEvent.DestinationID != nil {
-		destinationEvents = index.GetEventByDestination(*mainEvent.DestinationID)
+	if req.IncludeSameDestination != nil && *req.IncludeSameDestination && mainEvent.DestinationID != "" {
+		destinationEvents = index.GetEventByDestination(mainEvent.DestinationID)
 	}
 
 	// Устанавливаем ограничение размера разделов (по умолчанию 50)
@@ -200,14 +200,14 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 	timelineItems := make([]TimelineItem, 0, len(allUniqueEventsMap))
 	for _, event := range allUniqueEventsMap {
 		var fileName, destination, severity string
-		if event.FileName != nil {
-			fileName = *event.FileName
+		if event.FileName != "" {
+			fileName = event.FileName
 		}
-		if event.Destination != nil {
-			destination = *event.Destination
+		if event.Destination != "" {
+			destination = event.Destination
 		}
-		if event.Severity != nil {
-			severity = *event.Severity
+		if event.Severity != "" {
+			severity = event.Severity
 		}
 
 		timelineItems = append(timelineItems, TimelineItem{
@@ -239,9 +239,9 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 func BuildSummary(event *Event) string {
 	var summary strings.Builder
 	summary.WriteString(event.UserID)
-	if event.FileName != nil {
+	if event.FileName != "" {
 		summary.WriteString(" ")
-		summary.WriteString(*event.FileName)
+		summary.WriteString(event.FileName)
 	}
 	return summary.String()
 }
@@ -260,13 +260,13 @@ func WriteSummaryText(mainEvent *Event) string {
 	summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(mainEvent.UserID)))
 	summary.WriteString(" совершил действие ")
 	summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(mainEvent.Action)))
-	if mainEvent.FileName != nil {
+	if mainEvent.FileName != "" {
 		summary.WriteString(" с файлом ")
-		summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(*mainEvent.FileName)))
+		summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(mainEvent.FileName)))
 	}
-	if mainEvent.Destination != nil {
+	if mainEvent.Destination != "" {
 		summary.WriteString(" в адрес ")
-		summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(*mainEvent.Destination)))
+		summary.WriteString(fmt.Sprintf("***%s***", escapeMarkdownText(mainEvent.Destination)))
 	}
 	summary.WriteString(".\n\n")
 	return summary.String()

@@ -40,16 +40,18 @@ func TestBuildAnswer(t *testing.T) {
 	fileID := "file_001"
 	fileName := "file.txt"
 	destinationID := "dst_001"
-	events := []Event{
-		{EventID: "evt_12345", TimeStamp: "2026-06-16T10:15:00Z", UserID: "user_001", Action: "send", FileID: &fileID, FileName: &fileName, DestinationID: &destinationID},
-		{EventID: "evt_12346", TimeStamp: "2026-06-16T10:10:00Z", UserID: "user_001", Action: "open", FileID: &fileID, FileName: &fileName},
-		{EventID: "evt_12347", TimeStamp: "2026-06-16T10:17:00Z", UserID: "user_001", Action: "close", FileID: &fileID, FileName: &fileName},
-		{EventID: "evt_12348", TimeStamp: "2026-06-16T10:12:00Z", UserID: "user_002", Action: "open", FileID: &fileID, FileName: &fileName},
-		{EventID: "evt_12349", TimeStamp: "2026-06-16T10:14:00Z", UserID: "user_003", Action: "open", FileID: &fileID, FileName: &fileName},
-		{EventID: "evt_12350", TimeStamp: "2026-06-16T10:16:00Z", UserID: "user_004", Action: "send", DestinationID: &destinationID},
+	rawEvents := []Event{
+		{EventID: "evt_12345", TimeStamp: "2026-06-16T10:15:00Z", UserID: "user_001", Action: "send", FileID: fileID, FileName: fileName, DestinationID: destinationID},
+		{EventID: "evt_12346", TimeStamp: "2026-06-16T10:10:00Z", UserID: "user_001", Action: "open", FileID: fileID, FileName: fileName},
+		{EventID: "evt_12347", TimeStamp: "2026-06-16T10:17:00Z", UserID: "user_001", Action: "close", FileID: fileID, FileName: fileName},
+		{EventID: "evt_12348", TimeStamp: "2026-06-16T10:12:00Z", UserID: "user_002", Action: "open", FileID: fileID, FileName: fileName},
+		{EventID: "evt_12349", TimeStamp: "2026-06-16T10:14:00Z", UserID: "user_003", Action: "open", FileID: fileID, FileName: fileName},
+		{EventID: "evt_12350", TimeStamp: "2026-06-16T10:16:00Z", UserID: "user_004", Action: "send", DestinationID: destinationID},
 	}
 
-	for i := range events {
+	events := make([]*Event, len(rawEvents))
+	for i := range rawEvents {
+		events[i] = &rawEvents[i]
 		events[i].LineNumber = i + 1
 	}
 
@@ -66,7 +68,7 @@ func TestBuildAnswer(t *testing.T) {
 		MaxEventsPerSection:    50,
 	}
 
-	index := BuildIndex(events)
+	index := BuildIndex(rawEvents)
 
 	// Проверка на существование события с event_id главного события
 	mainEvent, isExist := index.GetEvent(req.MainEventID)
@@ -123,7 +125,6 @@ func TestBuildAnswer(t *testing.T) {
 
 	assert.Len(t, answer.TimeLine, 4)
 	assert.Len(t, answer.LinksToTheOriginalEvents, 4)
-
 }
 
 func TestBuildTimeLine(t *testing.T) {
@@ -183,7 +184,7 @@ func TestBuildSummary(t *testing.T) {
 	// Полные данные
 	event := &Event{
 		UserID:   "user_001",
-		FileName: &fileName,
+		FileName: fileName,
 	}
 
 	summary := BuildSummary(event)
@@ -222,9 +223,9 @@ func TestWriteSummaryText(t *testing.T) {
 	// Полные данные
 	event := &Event{
 		UserID:      "user_001",
-		FileName:    &fileName,
+		FileName:    fileName,
 		Action:      "send",
-		Destination: &destination,
+		Destination: destination,
 	}
 
 	summary := WriteSummaryText(event)
@@ -244,7 +245,7 @@ func TestWriteSummaryText(t *testing.T) {
 	// В event есть только user_id, action и file_name
 	event = &Event{
 		UserID:   "user_001",
-		FileName: &fileName,
+		FileName: fileName,
 		Action:   "send",
 	}
 
@@ -256,7 +257,7 @@ func TestWriteSummaryText(t *testing.T) {
 	event = &Event{
 		UserID:      "user_001",
 		Action:      "send",
-		Destination: &destination,
+		Destination: destination,
 	}
 
 	summary = WriteSummaryText(event)
@@ -267,7 +268,7 @@ func TestWriteSummaryText(t *testing.T) {
 func TestGenerateMarkdownCard(t *testing.T) {
 	fileName := "file.txt"
 	destination := "dst_001"
-	mainEvent := &Event{EventID: "evt_12345", TimeStamp: "2026-06-16T10:15:00Z", UserID: "user_001", Action: "send", FileName: &fileName, Destination: &destination}
+	mainEvent := &Event{EventID: "evt_12345", TimeStamp: "2026-06-16T10:15:00Z", UserID: "user_001", Action: "send", FileName: fileName, Destination: destination}
 
 	answer := &Answer{
 		IncidentID: "inc_001",
@@ -355,8 +356,8 @@ func TestBuildTruncation(t *testing.T) {
 		EventID:         mainID,
 		TimeStamp:       mainTime,
 		UserID:          userID,
-		FileID:          &fileID,
-		DestinationID:   &destID,
+		FileID:          fileID,
+		DestinationID:   destID,
 		Action: 		 "send",
 		Channel: 		 "email",
 		MachineID: 		 "pc_001",
@@ -367,8 +368,8 @@ func TestBuildTruncation(t *testing.T) {
 		EventID:         "evt_before",
 		TimeStamp:       "2026-06-16T10:10:00Z",
 		UserID:          userID,
-		FileID:          &fileID,
-		DestinationID:   &destID,
+		FileID:          fileID,
+		DestinationID:   destID,
 		Action: 		 "open",
 		Channel: 		 "local",
 		MachineID: 		 "pc_001",
@@ -379,8 +380,8 @@ func TestBuildTruncation(t *testing.T) {
 		EventID:         "evt_after",
 		TimeStamp:       "2026-06-16T10:20:00Z",
 		UserID:          userID,
-		FileID:          &fileID,
-		DestinationID:   &destID,
+		FileID:          fileID,
+		DestinationID:   destID,
 		Action: 		 "delete",
 		Channel: 		 "local",
 		MachineID: 		 "pc_001",
@@ -393,8 +394,8 @@ func TestBuildTruncation(t *testing.T) {
 			EventID:         fmt.Sprintf("evt_%d", i),
 			TimeStamp:       "2026-06-16T10:12:00Z",
 			UserID:          userID,
-			FileID:          &fileID,
-			DestinationID:   &destID,
+			FileID:          fileID,
+			DestinationID:   destID,
 			Action: 		 "copy",
 			Channel: 		 "local",
 			MachineID: 		 "pc_001",
@@ -421,7 +422,12 @@ func TestBuildTruncation(t *testing.T) {
 	// Получаем главное событие из индекса 
 	main, _ := index.GetEvent(mainID)
 
-	answer, err := BuildAnswer(main, index, allEvents, "events.jsonl", req, []Rule{})
+	eventsPtrs := make([]*Event, len(allEvents))
+	for i := range allEvents {
+		eventsPtrs[i] = &allEvents[i]
+	}
+
+	answer, err := BuildAnswer(main, index, eventsPtrs, "events.jsonl", req, []Rule{})
 	require.NoError(t, err)
 
 	// Ожидаем, что totalTimelineEvents = len(allEvents) (все уникальные)

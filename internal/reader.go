@@ -10,7 +10,7 @@ import (
 )
 
 // Чтение событий из JSONL-файла
-func ReadEvents(filePath string) ([]Event, Index, error) {
+func ReadEvents(filePath string, buildUserGroup, buildFileGroup, buildDestGroup bool) ([]*Event, Index, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, Index{}, fmt.Errorf("Не удалось открыть файл %s: %w", filePath, err)
@@ -31,15 +31,22 @@ func ReadEvents(filePath string) ([]Event, Index, error) {
 		}
 	}
 
-	// Создаём срез событий с предварительной ёмкостью
-	events := make([]Event, 0, estimatedLines)
+	// Создаём срез указателей на все события с предварительной ёмкостью
+	allEvents := make([]*Event, 0, estimatedLines)
 
 	// Создаём индекс с предварительной ёмкостью
 	index := Index{
 		EventIdIndex: make(map[string]*Event, estimatedLines),
-		UserIdGroup: make(map[string][]*Event, estimatedLines),
-		FileIdGroup: make(map[string][]*Event, estimatedLines),
-		DestinationIdGroup: make(map[string][]*Event, estimatedLines),
+	}
+
+	if (buildUserGroup) {
+		index.UserIdGroup = make(map[string][]*Event, estimatedLines)
+	}
+	if (buildFileGroup) {
+		index.FileIdGroup = make(map[string][]*Event, estimatedLines)
+	}
+	if (buildDestGroup) {
+		index.DestinationIdGroup = make(map[string][]*Event, estimatedLines)
 	}
 
 	scanner := bufio.NewScanner(file)
@@ -84,8 +91,8 @@ func ReadEvents(filePath string) ([]Event, Index, error) {
 			return nil, Index{}, fmt.Errorf("%s:%d: Неверный формат поля timestamp: %w\n", filePath, lineNumber, err)
 		}
 
-		// Проверка отрицаткльного размера
-		if (newEvent.SizeBytes != nil && *newEvent.SizeBytes < 0) {
+		// Проверка отрицательного размера
+		if (newEvent.SizeBytes < 0) {
 			return nil, Index{}, fmt.Errorf("%s:%d: Отрицательное значение поля size_bytes\n", filePath, lineNumber)
 		}
 
@@ -95,19 +102,38 @@ func ReadEvents(filePath string) ([]Event, Index, error) {
 			return nil, Index{}, fmt.Errorf("%s:%d: Дублирование значения event_id %s\n", filePath, lineNumber, newEvent.EventID)
 		}
 
-		events = append(events, newEvent) // добавляем новое событие в список событий
-		eventPtr := &events[len(events) - 1]
-		eventPtr.LineNumber = lineNumber
+		event := &Event{
+			EventID: newEvent.EventID,
+			TimeStamp: newEvent.TimeStamp,
+			UserID: newEvent.UserID,
+			MachineID: newEvent.MachineID,
+			Department: newEvent.Department,
+			Action: newEvent.Action,
+			Channel: newEvent.Channel,
+			FileID: newEvent.FileID,
+			FileName: newEvent.FileName,
+			FileExt: newEvent.FileExt,
+			ContentClasses: newEvent.ContentClasses,
+			DestinationID: newEvent.DestinationID,
+			DestinationType: newEvent.DestinationType,
+			Destination: newEvent.Destination,
+			SizeBytes: newEvent.SizeBytes,
+			Severity: newEvent.Severity,
+			LineNumber: lineNumber,
+		}
 
 		// Заполняем индекс
-		index.EventIdIndex[eventPtr.EventID] = eventPtr
-		index.UserIdGroup[eventPtr.UserID] = append(index.UserIdGroup[eventPtr.UserID], eventPtr)
-		if (eventPtr.FileID != nil) {
-			index.FileIdGroup[*eventPtr.FileID] = append(index.FileIdGroup[*eventPtr.FileID], eventPtr)
+		index.EventIdIndex[event.EventID] = event
+		if (buildUserGroup) {
+			index.UserIdGroup[event.UserID] = append(index.UserIdGroup[event.UserID], event)
 		}
-		if (eventPtr.DestinationID != nil) {
-			index.DestinationIdGroup[*eventPtr.DestinationID] = append(index.DestinationIdGroup[*eventPtr.DestinationID], eventPtr)
+		if (buildFileGroup && event.FileID != "") {
+			index.FileIdGroup[event.FileID] = append(index.FileIdGroup[event.FileID], event)
 		}
+		if (buildDestGroup && event.DestinationID != "") {
+			index.DestinationIdGroup[event.DestinationID] = append(index.DestinationIdGroup[event.DestinationID], event)
+		}
+		allEvents = append(allEvents, event)
 	}
 
 	err = scanner.Err()
@@ -115,6 +141,6 @@ func ReadEvents(filePath string) ([]Event, Index, error) {
 		return nil, Index{}, fmt.Errorf("Ошибка при чтении файла %s: %w", filePath, err) // ошибка при сканировнии
 	}
 
-	return events, index, nil
+	return allEvents, index, nil
 
 }

@@ -59,18 +59,18 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 		TimeStamp:       mainEventTime.Format(time.RFC3339),
 		UserID:          user,
 		MachineID:       machine,
-		Department:      &department,
+		Department:      department,
 		Action:          "email_send",
 		Channel:         "email",
-		FileID:          &fileID,
-		FileName:        &fileName,
-		FileExt:         &fileExt,
+		FileID:          fileID,
+		FileName:        fileName,
+		FileExt:         fileExt,
 		ContentClasses:  contentClasses,
-		DestinationID:   &destinationID,
-		DestinationType: &destinationType,
-		Destination:     &destination,
-		SizeBytes:       int64SizeBytes(204800),
-		Severity:        strPtr("high"),
+		DestinationID:   destinationID,
+		DestinationType: destinationType,
+		Destination:     destination,
+		SizeBytes:       204800,
+		Severity:        "high",
 	}
 
 	// Событие до (открытие файла)
@@ -80,15 +80,15 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 		TimeStamp:      beforeMainEvent.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "open_file",
 		Channel:        "local",
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes:      int64SizeBytes(204800),
-		Severity:       strPtr("low"),
+		SizeBytes:      204800,
+		Severity:       "low",
 	}
 
 	// Событие до (создание архива)
@@ -98,15 +98,15 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 		TimeStamp:      beforeMainEvent2.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "create_archive",
 		Channel:        "local",
-		FileID:         &fileID,
-		FileName:       strPtr("client_base.zip"),
-		FileExt:        strPtr("zip"),
+		FileID:         fileID,
+		FileName:       "client_base.zip",
+		FileExt:        "zip",
 		ContentClasses: contentClasses,
-		SizeBytes:      int64SizeBytes(102400),
-		Severity:       strPtr("medium"),
+		SizeBytes:      102400,
+		Severity:       "medium",
 	}
 
 	// События после (удаление файла)
@@ -116,15 +116,15 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 		TimeStamp:      afterMainEvent.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "delete_file",
 		Channel:        "local",
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes:      int64SizeBytes(204800),
-		Severity:       strPtr("high"),
+		SizeBytes:      204800,
+		Severity:       "high",
 	}
 
 	// События того же пользователя, но с другим файлом (проверка связанных по пользователю файлов)
@@ -134,20 +134,20 @@ func GenerateExternalSend(rng *rand.Rand, count int, baseTime time.Time) ([]Even
 		TimeStamp:      eventTime.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "open_file",
 		Channel:        "local",
-		FileID:         strPtr("file_012"),
-		FileName:       strPtr("info.pdf"),
-		FileExt:        strPtr("pdf"),
+		FileID:         "file_012",
+		FileName:       "info.pdf",
+		FileExt:        "pdf",
 		ContentClasses: []string{"legal"},
-		SizeBytes:      int64SizeBytes(102400),
-		Severity:       strPtr("low"),
+		SizeBytes:      102400,
+		Severity:       "low",
 	}
 
 	// Генерируем оставшиеся count-5 событий, начиная с индекса 5, так как предыдущие 5 уже составлены
 	for i := 5; i < count; i++ {
-		events[i] = GenerateRandomEvent(rng, baseTime, i - 5) // индекс с 0
+		events[i] = GenerateRandomEvent(rng, baseTime, i - 5, "external_send") // индекс с 0
 	}
 	return events, nil
 }
@@ -177,18 +177,18 @@ func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, er
 		TimeStamp:       mainEventTime.Format(time.RFC3339),
 		UserID:          user,
 		MachineID:       machine,
-		Department:      &department,
+		Department:      department,
 		Action:          "copy_to_usb",
 		Channel:         "usb",
-		FileID:          &fileID,
-		FileName:        &fileName,
-		FileExt:         &fileExt,
+		FileID:          fileID,
+		FileName:        fileName,
+		FileExt:         fileExt,
 		ContentClasses:  contentClasses,
-		DestinationID:   &destinationID,
-		DestinationType: &destinationType,
-		Destination:     &destination,
-		SizeBytes:       int64SizeBytes(102400),
-		Severity:        strPtr("high"),
+		DestinationID:   destinationID,
+		DestinationType: destinationType,
+		Destination:     destination,
+		SizeBytes:       102400,
+		Severity:        "high",
 	}
 
 	// События до (открытие файла)
@@ -198,15 +198,15 @@ func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, er
 		TimeStamp:      beforeMainEvent.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "open_file",
 		Channel:        "local",
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes:      int64SizeBytes(102400),
-		Severity:       strPtr("low"),
+		SizeBytes:      102400,
+		Severity:       "low",
 	}
 
 	// Событие после (удаление файла)
@@ -216,15 +216,15 @@ func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, er
 		TimeStamp:      afterMainEvent.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "delete_file",
 		Channel:        "local",
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes:      int64SizeBytes(204800),
-		Severity:       strPtr("high"),
+		SizeBytes:      204800,
+		Severity:       "high",
 	}
 
 	// События того же пользователя, но с другим файлом (проверка связанных по пользователю файлов)
@@ -234,20 +234,20 @@ func GenerateUSBCopy(rng *rand.Rand, count int, baseTime time.Time) ([]Event, er
 		TimeStamp:      eventTime.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "open_file",
 		Channel:        "local",
-		FileID:         strPtr("file_012"),
-		FileName:       strPtr("info.pdf"),
-		FileExt:        strPtr("pdf"),
+		FileID:         "file_012",
+		FileName:       "info.pdf",
+		FileExt:        "pdf",
 		ContentClasses: []string{"legal"},
-		SizeBytes:      int64SizeBytes(102400),
-		Severity:       strPtr("low"),
+		SizeBytes:      102400,
+		Severity:       "low",
 	}
 
 	// Генерируем оставшиеся count-4 событий, начиная с индекса 4, так как предыдущие 4 уже составлены
 	for i := 4; i < count; i++ {
-		events[i] = GenerateRandomEvent(rng, baseTime, i - 4) // индекс с 0
+		events[i] = GenerateRandomEvent(rng, baseTime, i - 4, "") // индекс с 0
 	}
 	return events, nil
 }
@@ -277,18 +277,18 @@ func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event
 		TimeStamp:       mainEventTime.Format(time.RFC3339),
 		UserID:          user,
 		MachineID:       machine,
-		Department:      &department,
+		Department:      department,
 		Action:          "cloud_upload",
 		Channel:         "cloud",
-		FileID:          &fileID,
-		FileName:        &fileName,
-		FileExt:         &fileExt,
+		FileID:          fileID,
+		FileName:        fileName,
+		FileExt:         fileExt,
 		ContentClasses:  contentClasses,
-		DestinationID:   &destinationID,
-		DestinationType: &destinationType,
-		Destination:     &destination,
-		SizeBytes:       int64SizeBytes(4476205),
-		Severity:        strPtr("high"),
+		DestinationID:   destinationID,
+		DestinationType: destinationType,
+		Destination:     destination,
+		SizeBytes:       4476205,
+		Severity:        "high",
 	}
 
 	// События до (создание архива)
@@ -298,15 +298,15 @@ func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event
 		TimeStamp:      beforeMainEvent.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "create_archive",
 		Channel:        "local",
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes:      int64SizeBytes(4476205),
-		Severity:       strPtr("medium"),
+		SizeBytes:      4476205,
+		Severity:       "medium",
 	}
 
 	// Событие после (удаление файла)
@@ -316,15 +316,15 @@ func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event
 		TimeStamp:      afterMainEvent.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "delete_file",
 		Channel:        "local",
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClasses,
-		SizeBytes:      int64SizeBytes(4476205),
-		Severity:       strPtr("high"),
+		SizeBytes:      4476205,
+		Severity:       "high",
 	}
 
 	// События того же пользователя, но с другим файлом (проверка связанных по пользователю файлов)
@@ -334,25 +334,25 @@ func GenerateCloudUpload(rng *rand.Rand, count int, baseTime time.Time) ([]Event
 		TimeStamp:      eventTime.Format(time.RFC3339),
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         "open_file",
 		Channel:        "local",
-		FileID:         strPtr("file_015"),
-		FileName:       strPtr("info.pdf"),
-		FileExt:        strPtr("pdf"),
+		FileID:         "file_015",
+		FileName:       "info.pdf",
+		FileExt:        "pdf",
 		ContentClasses: []string{"legal"},
-		SizeBytes:      int64SizeBytes(4476205),
-		Severity:       strPtr("low"),
+		SizeBytes:      4476205,
+		Severity:       "low",
 	}
 
 	// Генерируем оставшиеся count-4 событий, начиная с индекса, так как предыдущие 4 уже составлены
 	for i := 4; i < count; i++ {
-		events[i] = GenerateRandomEvent(rng, baseTime, i - 4) // индекс с 0
+		events[i] = GenerateRandomEvent(rng, baseTime, i - 4, "") // индекс с 0
 	}
 	return events, nil
 }
 
-func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time, index int) Event {
+func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time, index int, scenario string) Event {
 	// Списки возможных значений
 	users := []string{"user_015", "user_016", "user_017", "user_018", "user_019", "user_020"}
 	machines := []string{"pc_001", "pc_002", "pc_003", "pc_004", "pc_005"}
@@ -380,20 +380,34 @@ func GenerateRandomEvent(rng *rand.Rand, baseTime time.Time, index int) Event {
 
 	timestamp := baseTime.Add(time.Duration(rng.Intn(2*24*60*60)) * time.Second).Format(time.RFC3339) // 2*24*60*60 - количесвто секунд в 2 днях
 
+	var destinationID string
+	var destinationType string
+	var destination string
+
+	if (scenario == "external_send") {
+		destinationID = fmt.Sprintf("dst_%03d", 400+rng.Intn(100))
+		destinationType = "external"
+		destination = fmt.Sprintf("external_email_%d@mail.com", rng.Intn(100))
+		
+	}
+
 	return Event{
 		EventID:        eventID,
 		TimeStamp:      timestamp,
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         action,
 		Channel:        channel,
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClass,
-		SizeBytes:      &sizeBytes,
-		Severity:       &severity,
+		SizeBytes:      sizeBytes,
+		Severity:       severity,
+		DestinationID: destinationID,
+		DestinationType: destinationType,
+		Destination: destination,
 	}
 }
 
@@ -458,18 +472,18 @@ func GenerateExternalSendEvent(rng *rand.Rand, baseTime time.Time, count int) Ev
 		TimeStamp:      timestamp,
 		UserID:         user,
 		MachineID:      machine,
-		Department:     &department,
+		Department:     department,
 		Action:         action,
 		Channel:        channel,
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClass,
-		DestinationID: 	&destID,
-		DestinationType: &destType,
-		Destination: 	&dest,
-		SizeBytes:      &sizeBytes,
-		Severity:       &severity,
+		DestinationID: 	destID,
+		DestinationType: destType,
+		Destination: 	dest,
+		SizeBytes:      sizeBytes,
+		Severity:       severity,
 	}
 }
 
@@ -507,18 +521,18 @@ func GenerateUSBCopyEvent(rng *rand.Rand, baseTime time.Time, count int) Event {
 		TimeStamp:      timestamp,
 		UserID:         user,
 		MachineID:      machine,
-		Department:     strPtr("finance"),
+		Department:     "finance",
 		Action:         action,
 		Channel:        channel,
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClass,
-		DestinationID: 	&destID,
-		DestinationType: &destType,
-		Destination: 	&dest,
-		SizeBytes:      &sizeBytes,
-		Severity:       &severity,
+		DestinationID: 	destID,
+		DestinationType: destType,
+		Destination: 	dest,
+		SizeBytes:      sizeBytes,
+		Severity:       severity,
 	}
 }
 
@@ -556,17 +570,17 @@ func GenerateCloudUploadEvent(rng *rand.Rand, baseTime time.Time, count int) Eve
 		TimeStamp:      timestamp,
 		UserID:         user,
 		MachineID:      machine,
-		Department:     strPtr("dev"),
+		Department:     "dev",
 		Action:         action,
 		Channel:        channel,
-		FileID:         &fileID,
-		FileName:       &fileName,
-		FileExt:        &fileExt,
+		FileID:         fileID,
+		FileName:       fileName,
+		FileExt:        fileExt,
 		ContentClasses: contentClass,
-		DestinationID: 	&destID,
-		DestinationType: &destType,
-		Destination: 	&dest,
-		SizeBytes:      &sizeBytes,
-		Severity:       &severity,
+		DestinationID: 	destID,
+		DestinationType: destType,
+		Destination: 	dest,
+		SizeBytes:      sizeBytes,
+		Severity:       severity,
 	}
 }

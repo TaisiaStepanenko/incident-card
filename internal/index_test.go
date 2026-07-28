@@ -61,10 +61,10 @@ func TestIndexFileIdGroup(t *testing.T) {
 	file2 := "file_002"
 
 	events := []Event{
-		{EventID: "evt_12345", FileID: &file1, Action: "open"},
-		{EventID: "evt_12346", FileID: &file1, Action: "email_send"},
-		{EventID: "evt_12348", FileID: nil, Action: "email_send"},
-		{EventID: "evt_12347", FileID: &file2, Action: "open"},
+		{EventID: "evt_12345", FileID: file1, Action: "open"},
+		{EventID: "evt_12346", FileID: file1, Action: "email_send"},
+		{EventID: "evt_12348", FileID: "", Action: "email_send"},
+		{EventID: "evt_12347", FileID: file2, Action: "open"},
 	}
 
 	index := BuildIndex(events)
@@ -89,10 +89,10 @@ func TestIndexDestinationIdGroup(t *testing.T) {
 	dest2 := "dest_002"
 
 	events := []Event{
-		{EventID: "evt_12345", DestinationID: &dest1, Action: "open"},
-		{EventID: "evt_12346", DestinationID: &dest1, Action: "email_send"},
-		{EventID: "evt_12348", DestinationID: nil, Action: "email_send"},
-		{EventID: "evt_12347", DestinationID: &dest2, Action: "open"},
+		{EventID: "evt_12345", DestinationID: dest1, Action: "open"},
+		{EventID: "evt_12346", DestinationID: dest1, Action: "email_send"},
+		{EventID: "evt_12348", DestinationID: "", Action: "email_send"},
+		{EventID: "evt_12347", DestinationID: dest2, Action: "open"},
 	}
 
 	index := BuildIndex(events)
@@ -139,8 +139,8 @@ func TestSearchRelationship(t *testing.T) {
 
 	events := []Event{
 		{EventID: "evt_001", UserID: userID},
-		{EventID: "evt_002", FileID: &fileID},
-		{EventID: "evt_003", DestinationID: &destID},
+		{EventID: "evt_002", FileID: fileID},
+		{EventID: "evt_003", DestinationID: destID},
 	}
 
 	index := BuildIndex(events)

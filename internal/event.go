@@ -5,18 +5,18 @@ type Event struct {
 	TimeStamp       string   `json:"timestamp"`
 	UserID          string   `json:"user_id"`
 	MachineID       string   `json:"machine_id"`
-	Department      *string  `json:"department,omitempty"`
+	Department      string  `json:"department,omitempty"`
 	Action          string   `json:"action"`
 	Channel         string   `json:"channel"`
-	FileID          *string  `json:"file_id,omitempty"`
-	FileName        *string  `json:"file_name,omitempty"`
-	FileExt         *string  `json:"file_ext,omitempty"`
+	FileID          string  `json:"file_id,omitempty"`
+	FileName        string  `json:"file_name,omitempty"`
+	FileExt         string  `json:"file_ext,omitempty"`
 	ContentClasses  []string `json:"content_classes,omitempty"`
-	DestinationID   *string  `json:"destination_id,omitempty"`
-	DestinationType *string  `json:"destination_type,omitempty"`
-	Destination     *string  `json:"destination,omitempty"`
-	SizeBytes       *int64   `json:"size_bytes,omitempty"`
-	Severity        *string  `json:"severity,omitempty"`
+	DestinationID   string  `json:"destination_id,omitempty"`
+	DestinationType string  `json:"destination_type,omitempty"`
+	Destination     string  `json:"destination,omitempty"`
+	SizeBytes       int64   `json:"size_bytes,omitempty"`
+	Severity        string  `json:"severity,omitempty"`
 	LineNumber 		int 	 `json:"-"`
 }
 

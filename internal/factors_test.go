@@ -8,8 +8,8 @@ import (
 
 func TestCheckCondition(t *testing.T) {
 	event := &Event{EventID: "evt_12345", TimeStamp: "2026-06-16T10:15:00Z", UserID: "user_017", MachineID: "m_001", Action: "send", Channel: "local",
-		Department: strPtr("sales"), FileID: strPtr("file_001"), FileName: strPtr("file.txt"), FileExt: strPtr("txt"), DestinationID: strPtr("dst_001"),
-		DestinationType: strPtr("none"), Destination: strPtr("test@gmil.com"), Severity: strPtr("low"), ContentClasses: []string{"personal_data", "finance"}, SizeBytes: int64SizeBytes(204800)}
+		Department: "sales", FileID: "file_001", FileName: "file.txt", FileExt: "txt", DestinationID: "dst_001",
+		DestinationType: "none", Destination: "test@gmil.com", Severity: "low", ContentClasses: []string{"personal_data", "finance"}, SizeBytes: 204800}
 	emptyEvent := &Event{}
 	true_flag := true
 	false_flag := false
@@ -286,7 +286,7 @@ func TestCheckCondition(t *testing.T) {
 	// Contains
 	assert.False(t, CheckCondition(event, Condition{Field: "size_bytes", Contains: strPtr("2048")}))
 
-	emptyEvent.SizeBytes = int64SizeBytes(0)
+	emptyEvent.SizeBytes = 0
 	assert.True(t, CheckCondition(event, Condition{Field: "size_bytes", Gt: int64SizeBytes(100000)}))
 	assert.True(t, CheckCondition(event, Condition{Field: "size_bytes", Gte: int64SizeBytes(100000)}))
 	assert.False(t, CheckCondition(event, Condition{Field: "size_bytes", Gt: int64SizeBytes(300000)}))
@@ -301,11 +301,11 @@ func TestCheckCondition(t *testing.T) {
 func TestCheckRules(t *testing.T) {
 	event := &Event{
 		EventID:         "evt_12345",
-		FileName:        strPtr("importantFile.txt"),
-		DestinationType: strPtr("external"),
-		Severity:        strPtr("high"),
+		FileName:        "importantFile.txt",
+		DestinationType: "external",
+		Severity:        "high",
 		ContentClasses:  []string{"personal_data", "finance"},
-		SizeBytes:       int64SizeBytes(204800),
+		SizeBytes:       204800,
 	}
 
 	rules := []Rule{

@@ -132,8 +132,15 @@ func main() {
 		}
 
 		limit := req.MaxEventsPerSection
+		if limit == 0 {
+			limit = 50
+		}
 
-		events, index, err := internal.ReadEvents(*eventsFile)
+		buildUserGroup := req.IncludeSameUser != nil && *req.IncludeSameUser
+		buildFileGroup := req.IncludeSameFile != nil && *req.IncludeSameFile
+		buildDestGroup := req.IncludeSameDestination != nil && *req.IncludeSameDestination
+
+		events, index, err := internal.ReadEvents(*eventsFile, buildUserGroup, buildFileGroup, buildDestGroup)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
 			os.Exit(1)

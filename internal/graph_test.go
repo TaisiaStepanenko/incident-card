@@ -24,10 +24,10 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 		MachineID:     "pc_003",
 		Action:        "copy_to_usb",
 		Channel:       "usb",
-		FileID:        &fileID1,
-		FileName:      &fileName1,
-		DestinationID: &destID1,
-		Destination:   &destName1,
+		FileID:        fileID1,
+		FileName:      fileName1,
+		DestinationID: destID1,
+		Destination:   destName1,
 	}
 
 	// Событие до (открытие файла)
@@ -38,8 +38,8 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 		MachineID: "pc_003",
 		Action:    "open_file",
 		Channel:   "local",
-		FileID:    &fileID1,
-		FileName:  &fileName1,
+		FileID:    fileID1,
+		FileName:  fileName1,
 	}
 
 	// События после (удаление файла)
@@ -50,8 +50,8 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 		MachineID: "pc_003",
 		Action:    "delete_file",
 		Channel:   "local",
-		FileID:    &fileID1,
-		FileName:  &fileName1,
+		FileID:    fileID1,
+		FileName:  fileName1,
 	}
 
 	// событие с другим файлом
@@ -62,8 +62,8 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 		MachineID: "pc_003",
 		Action:    "open_file",
 		Channel:   "local",
-		FileID:    &fileID2,
-		FileName:  &fileName2,
+		FileID:    fileID2,
+		FileName:  fileName2,
 	}
 
 	events := []Event{mainEvent, beforeMainEvent, afterMainEvent, otherEvent}
@@ -81,7 +81,7 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 				Role:        RoleBeforeContext,
 				UserID:      beforeMainEvent.UserID,
 				Action:      beforeMainEvent.Action,
-				FileName:    *beforeMainEvent.FileName,
+				FileName:    beforeMainEvent.FileName,
 				Destination: "",
 				Severity:    "low",
 			},
@@ -91,8 +91,8 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 				Role:        RoleMain,
 				UserID:      mainEvent.UserID,
 				Action:      mainEvent.Action,
-				FileName:    *mainEvent.FileName,
-				Destination: *mainEvent.Destination,
+				FileName:    mainEvent.FileName,
+				Destination: mainEvent.Destination,
 				Severity:    "high",
 			},
 			{
@@ -101,7 +101,7 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 				Role:        RoleAfterContext,
 				UserID:      afterMainEvent.UserID,
 				Action:      afterMainEvent.Action,
-				FileName:    *afterMainEvent.FileName,
+				FileName:    afterMainEvent.FileName,
 				Destination: "",
 				Severity:    "high",
 			},
@@ -111,7 +111,7 @@ func TestGenerateDOTGraph_Success(t *testing.T) {
 				Role:        RoleSameUser,
 				UserID:      otherEvent.UserID,
 				Action:      otherEvent.Action,
-				FileName:    *otherEvent.FileName,
+				FileName:    otherEvent.FileName,
 				Destination: "",
 				Severity:    "low",
 			},

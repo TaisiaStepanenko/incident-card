@@ -29,13 +29,13 @@ func BuildIndex(events []Event) Index {
 		idx.UserIdGroup[event.UserID] = append(idx.UserIdGroup[event.UserID], event)
 
 		// Группировка по file_id
-		if event.FileID != nil {
-			idx.FileIdGroup[*event.FileID] = append(idx.FileIdGroup[*event.FileID], event)
+		if event.FileID != "" {
+			idx.FileIdGroup[event.FileID] = append(idx.FileIdGroup[event.FileID], event)
 		}
 
 		// Группировка по destination_id
-		if event.DestinationID != nil {
-			idx.DestinationIdGroup[*event.DestinationID] = append(idx.DestinationIdGroup[*event.DestinationID], event)
+		if event.DestinationID != "" {
+			idx.DestinationIdGroup[event.DestinationID] = append(idx.DestinationIdGroup[event.DestinationID], event)
 		}
 	}
 
@@ -50,15 +50,24 @@ func (idx Index) GetEvent(eventId string) (*Event, bool) {
 
 // функция возвращает все Event пользователя с user_id
 func (idx Index) GetEventByUser(userId string) []*Event {
+	if (idx.UserIdGroup == nil) {
+		return nil
+	} 
 	return idx.UserIdGroup[userId]
 }
 
 // функция возвращает все Event пользователя с file_id
 func (idx Index) GetEventByFile(fileId string) []*Event {
+	if (idx.FileIdGroup == nil) {
+		return nil
+	} 
 	return idx.FileIdGroup[fileId]
 }
 
 // функция возвращает все Event пользователя с destination_id
 func (idx Index) GetEventByDestination(destinationId string) []*Event {
+	if (idx.DestinationIdGroup == nil) {
+		return nil
+	} 
 	return idx.DestinationIdGroup[destinationId]
 }

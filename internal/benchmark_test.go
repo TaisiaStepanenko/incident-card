@@ -23,6 +23,10 @@ func BenchmarkBuildIndex(b *testing.B) {
 func BenchmarkGetEventsInTimeRange(b *testing.B) {
 	const events_size = 1000000
 	events := GenerateStructuredBenchmarkEvents(events_size)
+	eventsPtrs := make([]*Event, len(events))
+	for i := range events {
+		eventsPtrs[i] = &events[i]
+	}
 	mainTime := "2026-06-16T10:15:00Z"
 	beforeDur := "30m"
 	afterDur := "10m"
@@ -31,7 +35,7 @@ func BenchmarkGetEventsInTimeRange(b *testing.B) {
 	b.ResetTimer()
 	var res []*Event
 	for i := 0; i < b.N; i++ {
-		res, _ = GetEventsInTimeRange(events, mainTime, beforeDur, afterDur)
+		res, _ = GetEventsInTimeRange(eventsPtrs, mainTime, beforeDur, afterDur)
 	}
 	_ = res
 }
@@ -41,6 +45,10 @@ func BenchmarkGetEventsInTimeRange(b *testing.B) {
 func BenchmarkBuildAnswer(b *testing.B) {
 	const events_size = 1000000
 	events := GenerateStructuredBenchmarkEvents(events_size)
+	eventsPtrs := make([]*Event, len(events))
+	for i := range events {
+		eventsPtrs[i] = &events[i]
+	}
 	index := BuildIndex(events)
 
 	// берём первое событие ка гланое (существование гарантированно)
@@ -75,7 +83,7 @@ func BenchmarkBuildAnswer(b *testing.B) {
 	var answer Answer
 	var err error
 	for i := 0; i < b.N; i++ {
-		answer, err = BuildAnswer(mainEvent, index, events, "events.jsonl", req, rules)
+		answer, err = BuildAnswer(mainEvent, index, eventsPtrs, "events.jsonl", req, rules)
 		if (err != nil) {
 			b.Fatal(err)
 		}
@@ -122,16 +130,16 @@ func BenchmarkBuildTimeline(b *testing.B) {
 func BenchmarkCheckRules(b *testing.B) {
 	event := &Event{
 		EventID: "evt_12345",
-		DestinationType: strPtr("external"),
+		DestinationType: "external",
 		ContentClasses: []string{"client_data", "personal_data"},
-		SizeBytes: int64SizeBytes(204800),
-		Severity: strPtr("high"),
+		SizeBytes: 204800,
+		Severity: "high",
 		Action: "send",
 		Channel: "email",
 		UserID: "user_017",
 		MachineID: "pc_003",
-		Department: strPtr("sales"),
-		FileExt: strPtr("xlsx"),
+		Department: "sales",
+		FileExt: "xlsx",
 	}
 
 	// Загружаем реальные правила
@@ -196,6 +204,10 @@ func BenchmarkCheckRules(b *testing.B) {
 func BenchmarkGenerateMarkdownCard(b *testing.B) {
 	const events_size = 1000000
 	events := GenerateStructuredBenchmarkEvents(events_size)
+	eventsPtrs := make([]*Event, len(events))
+	for i := range events {
+		eventsPtrs[i] = &events[i]
+	}
 	index := BuildIndex(events)
 	// берём первое событие ка гланое (существование гарантированно)
 	mainEvent, isExist := index.GetEvent("evt_0000001")
@@ -215,7 +227,7 @@ func BenchmarkGenerateMarkdownCard(b *testing.B) {
 		MaxEventsPerSection: 50,
 	}
 
-	answer, err := BuildAnswer(mainEvent, index, events, "events.jsonl", req, []Rule{})
+	answer, err := BuildAnswer(mainEvent, index, eventsPtrs, "events.jsonl", req, []Rule{})
 	if (err != nil) {
 		b.Fatalf("Ошибка: %v", err)
 	}
@@ -233,6 +245,10 @@ func BenchmarkGenerateMarkdownCard(b *testing.B) {
 func BenchmarkGenerateDOTGraph(b *testing.B) {
 	const events_size = 1000000
 	events := GenerateStructuredBenchmarkEvents(events_size)
+	eventsPtrs := make([]*Event, len(events))
+	for i := range events {
+		eventsPtrs[i] = &events[i]
+	}
 	index := BuildIndex(events)
 	// берём первое событие ка гланое (существование гарантированно)
 	mainEvent, isExist := index.GetEvent("evt_0000001")
@@ -252,7 +268,7 @@ func BenchmarkGenerateDOTGraph(b *testing.B) {
 		MaxEventsPerSection: 50,
 	}
 
-	answer, err := BuildAnswer(mainEvent, index, events, "events.jsonl", req, []Rule{})
+	answer, err := BuildAnswer(mainEvent, index, eventsPtrs, "events.jsonl", req, []Rule{})
 	if (err != nil) {
 		b.Fatalf("Ошибка: %v", err)
 	}
@@ -265,3 +281,4 @@ func BenchmarkGenerateDOTGraph(b *testing.B) {
 	}
 	_ = dot
 }
+

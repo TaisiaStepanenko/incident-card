@@ -77,12 +77,12 @@ func addEventEdges(graph *strings.Builder, event *Event, nodes, edges map[string
 	}
 
 	// узел и ребро файла
-	if event.FileID != nil && *event.FileID != "" {
-		fileNode := *event.FileID
+	if event.FileID != "" && event.FileID != "" {
+		fileNode := event.FileID
 		if !nodes[fileNode] {
-			file := *event.FileID
-			if event.FileName != nil {
-				file += "\\n" + *event.FileName
+			file := event.FileID
+			if event.FileName != "" {
+				file += "\\n" + event.FileName
 			}
 			graph.WriteString(fmt.Sprintf(" %s [shape=note, label=%s];\n", escapeDOTString(fileNode), escapeDOTString(file)))
 			nodes[fileNode] = true
@@ -95,12 +95,12 @@ func addEventEdges(graph *strings.Builder, event *Event, nodes, edges map[string
 	}
 
 	// узел и ребро адресата
-	if event.DestinationID != nil && *event.DestinationID != "" {
-		destinationNode := *event.DestinationID
+	if event.DestinationID != "" && event.DestinationID != "" {
+		destinationNode := event.DestinationID
 		if !nodes[destinationNode] {
-			destination := *event.DestinationID
-			if event.Destination != nil {
-				destination += "\\n" + *event.Destination
+			destination := event.DestinationID
+			if event.Destination != "" {
+				destination += "\\n" + event.Destination
 			}
 			graph.WriteString(fmt.Sprintf(" %s [shape=cylinder, label=%s];\n", escapeDOTString(destinationNode), escapeDOTString(destination)))
 			nodes[destinationNode] = true
