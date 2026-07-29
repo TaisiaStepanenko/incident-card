@@ -74,7 +74,7 @@ func TestBuildAnswer(t *testing.T) {
 	mainEvent, isExist := index.GetEvent(req.MainEventID)
 	require.True(t, isExist)
 
-	answer, _ := BuildAnswer(mainEvent, index, events, "events.jsonl", req, []Rule{})
+	answer, _ := BuildAnswer(mainEvent, index, "events.jsonl", req, []Rule{})
 
 	// Проверяем успешно ли записаны данные при вызове BuildAnswer
 	assert.Equal(t, "inc_001", answer.IncidentID)
@@ -121,7 +121,7 @@ func TestBuildAnswer(t *testing.T) {
 
 	// Устанавливаем лимит меньше количесва записей
 	req.MaxEventsPerSection = 4
-	answer, _ = BuildAnswer(mainEvent, index, events, "events.jsonl", req, []Rule{})
+	answer, _ = BuildAnswer(mainEvent, index, "events.jsonl", req, []Rule{})
 
 	assert.Len(t, answer.TimeLine, 4)
 	assert.Len(t, answer.LinksToTheOriginalEvents, 4)
@@ -230,7 +230,7 @@ func TestWriteSummaryText(t *testing.T) {
 
 	summary := WriteSummaryText(event)
 
-	assert.Equal(t, "Пользователь ***user\\_001*** совершил действие ***send*** с файлом ***file.txt*** в адрес ***dst\\_001***.\n\n", summary)
+	assert.Equal(t, "Пользователь ***user_001*** совершил действие ***send*** с файлом ***file.txt*** в адрес ***dst_001***.\n\n", summary)
 
 	// В event есть только user_id и action
 	event = &Event{
@@ -240,7 +240,7 @@ func TestWriteSummaryText(t *testing.T) {
 
 	summary = WriteSummaryText(event)
 
-	assert.Equal(t, "Пользователь ***user\\_001*** совершил действие ***send***.\n\n", summary)
+	assert.Equal(t, "Пользователь ***user_001*** совершил действие ***send***.\n\n", summary)
 
 	// В event есть только user_id, action и file_name
 	event = &Event{
@@ -251,7 +251,7 @@ func TestWriteSummaryText(t *testing.T) {
 
 	summary = WriteSummaryText(event)
 
-	assert.Equal(t, "Пользователь ***user\\_001*** совершил действие ***send*** с файлом ***file.txt***.\n\n", summary)
+	assert.Equal(t, "Пользователь ***user_001*** совершил действие ***send*** с файлом ***file.txt***.\n\n", summary)
 
 	// В event есть только user_id, action и destination
 	event = &Event{
@@ -262,7 +262,7 @@ func TestWriteSummaryText(t *testing.T) {
 
 	summary = WriteSummaryText(event)
 
-	assert.Equal(t, "Пользователь ***user\\_001*** совершил действие ***send*** в адрес ***dst\\_001***.\n\n", summary)
+	assert.Equal(t, "Пользователь ***user_001*** совершил действие ***send*** в адрес ***dst_001***.\n\n", summary)
 }
 
 func TestGenerateMarkdownCard(t *testing.T) {
@@ -301,25 +301,25 @@ func TestGenerateMarkdownCard(t *testing.T) {
 	markdownCard := GenerateMarkdownCard(mainEvent, answer, Index{}, 2)
 
 	assert.Contains(t, markdownCard, "# Карточка инцидента\n\n")
-	assert.Contains(t, markdownCard, "__ID инцидента:__ inc\\_001\n\n")
-	assert.Contains(t, markdownCard, "Пользователь ***user\\_001*** совершил действие ***send*** с файлом ***file.txt*** в адрес ***dst\\_001***.\n\n")
+	assert.Contains(t, markdownCard, "__ID инцидента:__ inc_001\n\n")
+	assert.Contains(t, markdownCard, "Пользователь ***user_001*** совершил действие ***send*** с файлом ***file.txt*** в адрес ***dst_001***.\n\n")
 	assert.Contains(t, markdownCard, "## Главное событие ##\n\n")
-	assert.Contains(t, markdownCard, "- __Event ID:__ evt\\_12345\n")
+	assert.Contains(t, markdownCard, "- __Event ID:__ evt_12345\n")
 	assert.Contains(t, markdownCard, "- __Action:__ send\n")
-	assert.Contains(t, markdownCard, "## Контекст до события ##\n\n- evt\\_12346\n")
-	assert.Contains(t, markdownCard, "## Контекст после события ##\n\n- evt\\_12347\n")
-	assert.Contains(t, markdownCard, "## События того же пользователя ##\n\n- evt\\_12346\n- evt\\_12347\n")
-	assert.Contains(t, markdownCard, "## События с тем же файлом ##\n\n- evt\\_12346\n")
-	assert.Contains(t, markdownCard, "## События с тем же адресатом ##\n\n- evt\\_12348\n")
+	assert.Contains(t, markdownCard, "## Контекст до события ##\n\n- evt_12346\n")
+	assert.Contains(t, markdownCard, "## Контекст после события ##\n\n- evt_12347\n")
+	assert.Contains(t, markdownCard, "## События того же пользователя ##\n\n- evt_12346\n- evt_12347\n")
+	assert.Contains(t, markdownCard, "## События с тем же файлом ##\n\n- evt_12346\n")
+	assert.Contains(t, markdownCard, "## События с тем же адресатом ##\n\n- evt_12348\n")
 	assert.Contains(t, markdownCard, "## Временная шкала ##\n\n")
 	assert.Contains(t, markdownCard, "Количество записей превысило максимально возможное значение (truncated). В таблице приведены первые 2 событий из 4.\n\n")
 	assert.Contains(t, markdownCard, "| Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |\n")
-	assert.Contains(t, markdownCard, "evt\\_12346")
-	assert.Contains(t, markdownCard, "evt\\_12345")
-	assert.Contains(t, markdownCard, "evt\\_12347")
-	assert.Contains(t, markdownCard, "evt\\_12348")
-	assert.Contains(t, markdownCard, "## Подозрительные факторы ##\n\n- external\\_destination\n- client\\_data\n")
-	assert.Contains(t, markdownCard, "## Ссылки на исходные события ##\n\n- ___evt\\_12345___: файл __eventsList.jsonl__ строка __1__\n- ___evt\\_12346___: файл __eventsList.jsonl__ строка __2__\n- ___evt\\_12347___: файл __eventsList.jsonl__ строка __3__\n- ___evt\\_12348___: файл __eventsList.jsonl__ строка __4__\n")
+	assert.Contains(t, markdownCard, "evt_12346")
+	assert.Contains(t, markdownCard, "evt_12345")
+	assert.Contains(t, markdownCard, "evt_12347")
+	assert.Contains(t, markdownCard, "evt_12348")
+	assert.Contains(t, markdownCard, "## Подозрительные факторы ##\n\n- external_destination\n- client_data\n")
+	assert.Contains(t, markdownCard, "## Ссылки на исходные события ##\n\n- ___evt_12345___: файл __eventsList.jsonl__ строка __1__\n- ___evt_12346___: файл __eventsList.jsonl__ строка __2__\n- ___evt_12347___: файл __eventsList.jsonl__ строка __3__\n- ___evt_12348___: файл __eventsList.jsonl__ строка __4__\n")
 
 	// Пустые разделы и timeline
 	answer = &Answer{
@@ -422,12 +422,7 @@ func TestBuildTruncation(t *testing.T) {
 	// Получаем главное событие из индекса 
 	main, _ := index.GetEvent(mainID)
 
-	eventsPtrs := make([]*Event, len(allEvents))
-	for i := range allEvents {
-		eventsPtrs[i] = &allEvents[i]
-	}
-
-	answer, err := BuildAnswer(main, index, eventsPtrs, "events.jsonl", req, []Rule{})
+	answer, err := BuildAnswer(main, index, "events.jsonl", req, []Rule{})
 	require.NoError(t, err)
 
 	// Ожидаем, что totalTimelineEvents = len(allEvents) (все уникальные)

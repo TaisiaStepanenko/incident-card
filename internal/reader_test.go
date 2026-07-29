@@ -22,7 +22,7 @@ func createTestFile(t *testing.T, content string) string {
 // Ошибка открытия файла
 func TestReadEventsFileOpeningError(t *testing.T) {
 
-	_, _, err := ReadEvents("noFile.json", true, true, true)
+	_, err := ReadEvents("noFile.json", true, true, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Не удалось открыть файл")
 }
@@ -34,16 +34,16 @@ func TestReadEventsSuccess(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	events, index, err := ReadEvents(testFile, true, true, true)
+	index, err := ReadEvents(testFile, true, true, true)
 	require.NoError(t, err)
 	// Проверяем корректность считанных событий
-	assert.Len(t, events, 2)
-	assert.Equal(t, "evt_12345", events[0].EventID)
-	assert.Equal(t, "evt_12346", events[1].EventID)
+	assert.Len(t, index.TimeIndex, 2)
+	assert.Equal(t, "evt_12345", index.TimeIndex[0].EventID)
+	assert.Equal(t, "evt_12346", index.TimeIndex[1].EventID)
 
 	// Проверяем корректность записанных ссылок
-	assert.Equal(t, 1, events[0].LineNumber)
-	assert.Equal(t, 2, events[1].LineNumber)
+	assert.Equal(t, 1, index.TimeIndex[0].LineNumber)
+	assert.Equal(t, 2, index.TimeIndex[1].LineNumber)
 
 	event, isExist := index.GetEvent("evt_12345")
 	assert.True(t, isExist)
@@ -59,15 +59,15 @@ func TestReadEventsEmptyLines(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	events, index, err := ReadEvents(testFile, true, true, true)
+	index, err := ReadEvents(testFile, true, true, true)
 	require.NoError(t, err)
-	assert.Len(t, events, 2)
-	assert.Equal(t, "evt_12345", events[0].EventID)
-	assert.Equal(t, "evt_12346", events[1].EventID)
+	assert.Len(t, index.TimeIndex, 2)
+	assert.Equal(t, "evt_12345", index.TimeIndex[0].EventID)
+	assert.Equal(t, "evt_12346", index.TimeIndex[1].EventID)
 
 	// Проверяем корректность записанных ссылок
-	assert.Equal(t, 1, events[0].LineNumber)
-	assert.Equal(t, 3, events[1].LineNumber)
+	assert.Equal(t, 1, index.TimeIndex[0].LineNumber)
+	assert.Equal(t, 3, index.TimeIndex[1].LineNumber)
 
 	event, isExist := index.GetEvent("evt_12345")
 	assert.True(t, isExist)
@@ -91,9 +91,9 @@ func TestReadEventsLongLines(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	_, _, err := ReadEvents(testFile, true, true, true)
+	_, err := ReadEvents(testFile, true, true, true)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cтрока слишком длинная")
+	assert.Contains(t, err.Error(), "строка слишком длинная")
 }
 
 // Проверка на корректную обработку неккоректных объектов JSON в файле
@@ -104,7 +104,7 @@ func TestReadEventsInvalidJSON(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	_, _, err := ReadEvents(testFile, true, true, true)
+	_, err := ReadEvents(testFile, true, true, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Ошибка парсинга строки:")
 }
@@ -116,7 +116,7 @@ func TestReadEventsMissingRequiredFields(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	_, _, err := ReadEvents(testFile, true, true, true)
+	_, err := ReadEvents(testFile, true, true, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Пропущено обязательное поле")
 }
@@ -128,7 +128,7 @@ func TestReadEventsInvalidTimestamp(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	_, _, err := ReadEvents(testFile, true, true, true)
+	_, err := ReadEvents(testFile, true, true, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Неверный формат поля timestamp")
 }
@@ -140,7 +140,7 @@ func TestReadEventsNegativeSizeBytes(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	_, _, err := ReadEvents(testFile, true, true, true)
+	_, err := ReadEvents(testFile, true, true, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Отрицательное значение поля size_bytes")
 }
@@ -152,7 +152,7 @@ func TestReadEventsDuplicateEventID(t *testing.T) {
 	testFile := createTestFile(t, content)
 	defer os.Remove(testFile)
 
-	_, _, err := ReadEvents(testFile, true, true, true)
+	_, err := ReadEvents(testFile, true, true, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Дублирование значения event_id")
 }

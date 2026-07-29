@@ -17,12 +17,9 @@ func TestGetEventsInTimeRangeValid(t *testing.T) {
 		{EventID: "evt_12349", TimeStamp: "2026-06-16T10:30:00Z"},
 	}
 
-	eventsPtrs := make([]*Event, len(events))
-	for i := range events {
-		eventsPtrs[i] = &events[i]
-	}
+	index := BuildIndex(events) 
 
-	eventsInTimeRange, err := GetEventsInTimeRange(eventsPtrs, mainTime, "10m", "5m")
+	eventsInTimeRange, err := GetEventsInTimeRange(index, mainTime, "10m", "5m")
 	require.NoError(t, err)
 	for _, event := range eventsInTimeRange {
 		assert.Contains(t, []string{"evt_12345", "evt_12346", "evt_12347"}, event.EventID)
@@ -40,12 +37,9 @@ func TestGetEventsInTimeRangeNoEvents(t *testing.T) {
 		{EventID: "evt_12346", TimeStamp: "2026-06-16T11:55:00Z"},
 	}
 
-	eventsPtrs := make([]*Event, len(events))
-	for i := range events {
-		eventsPtrs[i] = &events[i]
-	}
+	index := BuildIndex(events)
 
-	eventsInTimeRange, err := GetEventsInTimeRange(eventsPtrs, mainTime, "20h", "1h")
+	eventsInTimeRange, err := GetEventsInTimeRange(index, mainTime, "20h", "1h")
 	require.NoError(t, err)
 
 	assert.Empty(t, eventsInTimeRange)
@@ -58,12 +52,9 @@ func TestGetEventsInTimeRangeBorders(t *testing.T) {
 		{EventID: "evt_12346", TimeStamp: "2026-06-16T10:20:00Z"},
 	}
 	
-	eventsPtrs := make([]*Event, len(events))
-	for i := range events {
-		eventsPtrs[i] = &events[i]
-	}
+	index := BuildIndex(events)
 
-	eventsInTimeRange, err := GetEventsInTimeRange(eventsPtrs, mainTime, "5m", "5m")
+	eventsInTimeRange, err := GetEventsInTimeRange(index, mainTime, "5m", "5m")
 	require.NoError(t, err)
 	assert.Len(t, eventsInTimeRange, 2)
 }
@@ -75,12 +66,9 @@ func TestGetEventsInTimeRangeInvalidMainTime(t *testing.T) {
 		{EventID: "evt_12346", TimeStamp: "2026-06-16T10:20:00Z"},
 	}
 
-	eventsPtrs := make([]*Event, len(events))
-	for i := range events {
-		eventsPtrs[i] = &events[i]
-	}
+	index := BuildIndex(events)
 
-	_, err := GetEventsInTimeRange(eventsPtrs, mainTime, "5m", "5m")
+	_, err := GetEventsInTimeRange(index, mainTime, "5m", "5m")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Ошибка при парсинге времени главного события:")
 }
@@ -92,16 +80,13 @@ func TestGetEventsInTimeRangeInvalidDuration(t *testing.T) {
 		{EventID: "evt_12346", TimeStamp: "2026-06-16T10:20:00Z"},
 	}
 
-	eventsPtrs := make([]*Event, len(events))
-	for i := range events {
-		eventsPtrs[i] = &events[i]
-	}
+	index := BuildIndex(events)
 
-	_, err := GetEventsInTimeRange(eventsPtrs, mainTime, "1day", "5m")
+	_, err := GetEventsInTimeRange(index, mainTime, "1day", "5m")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Задан неверный формат --before:")
 
-	_, err = GetEventsInTimeRange(eventsPtrs, mainTime, "5m", "1day")
+	_, err = GetEventsInTimeRange(index, mainTime, "5m", "1day")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Задан неверный формат --after:")
 }
@@ -112,13 +97,9 @@ func TestGetEventsInTimeRangeInvalidTime(t *testing.T) {
 		{EventID: "evt_12345", TimeStamp: "2026-06-16T10:10:00"},
 		{EventID: "evt_12346", TimeStamp: "2026-06-16T10:20:00Z"},
 	}
+	index := BuildIndex(events)
 
-	eventsPtrs := make([]*Event, len(events))
-	for i := range events {
-		eventsPtrs[i] = &events[i]
-	}
-
-	eventsInTimeRange, err := GetEventsInTimeRange(eventsPtrs, mainTime, "5m", "5m")
+	eventsInTimeRange, err := GetEventsInTimeRange(index, mainTime, "5m", "5m")
 	require.NoError(t, err)
 	assert.Len(t, eventsInTimeRange, 1)
 }

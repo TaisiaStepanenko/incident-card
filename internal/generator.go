@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"time"
 )
@@ -584,3 +586,351 @@ func GenerateCloudUploadEvent(rng *rand.Rand, baseTime time.Time, count int) Eve
 		Severity:       severity,
 	}
 }
+
+// Генерирует события и сразу записывает их в формате JSONL
+func GenerateEventsToWriter(w io.Writer, count int, scenario string, seed int64) error {
+	if (count <= 0) {
+		return fmt.Errorf("Некорректное значение count: %d", count)
+	}
+	rng := rand.New(rand.NewSource(seed))
+	baseTime := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(seed) * time.Hour)
+	encoder := json.NewEncoder(w)
+
+	var err error
+	switch scenario {
+	case "external_send":
+		err = GenerateExternalSendStream(encoder, rng, count, baseTime)
+	case "usb_copy":
+		err = GenerateUSBCopyStream(encoder, rng, count, baseTime)
+	case "cloud_upload":
+		err = GenerateCloudUploadStream(encoder, rng, count, baseTime)
+	default:
+		return fmt.Errorf("Неизвестный сценарий %s, доступные сценарии external_send, usb_copy, cloud_uplod", scenario)
+	}
+	return err
+}
+
+func GenerateExternalSendStream(encoder *json.Encoder, rng *rand.Rand, count int, baseTime time.Time) (error) {
+
+	if (count < 5) {
+		return fmt.Errorf("Для данного сценария (external_send) значение count должно быть не менее 5")
+	}
+
+	user := "user_017"
+	machine := "pc_003"
+	department := "sales"
+	fileID := "file_778"
+	fileName := "client_base.xlsx"
+	fileExt := "xlsx"
+	contentClasses := []string{"client_data", "personal_data"}
+	destinationID := "dst_009"
+	destinationType := "external"
+	destination := "external_email_001"
+
+	// Определяем главное событие
+	mainEventTime := baseTime.Add(10 * time.Minute)
+	events := []Event{
+		{
+			EventID:         "evt_12345",
+			TimeStamp:       mainEventTime.Format(time.RFC3339),
+			UserID:          user,
+			MachineID:       machine,
+			Department:      department,
+			Action:          "email_send",
+			Channel:         "email",
+			FileID:          fileID,
+			FileName:        fileName,
+			FileExt:         fileExt,
+			ContentClasses:  contentClasses,
+			DestinationID:   destinationID,
+			DestinationType: destinationType,
+			Destination:     destination,
+			SizeBytes:       204800,
+			Severity:        "high",
+		},
+		{
+			EventID:        "evt_12338",
+			TimeStamp:      mainEventTime.Add(-10 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "open_file",
+			Channel:        "local",
+			FileID:         fileID,
+			FileName:       fileName,
+			FileExt:        fileExt,
+			ContentClasses: contentClasses,
+			SizeBytes:      204800,
+			Severity:       "low",
+		},
+		{
+			EventID:        "evt_12339",
+			TimeStamp:      mainEventTime.Add(-6 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "create_archive",
+			Channel:        "local",
+			FileID:         fileID,
+			FileName:       "client_base.zip",
+			FileExt:        "zip",
+			ContentClasses: contentClasses,
+			SizeBytes:      102400,
+			Severity:       "medium",
+		},
+		{
+			EventID:        "evt_12347",
+			TimeStamp:      mainEventTime.Add(40 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "delete_file",
+			Channel:        "local",
+			FileID:         fileID,
+			FileName:       fileName,
+			FileExt:        fileExt,
+			ContentClasses: contentClasses,
+			SizeBytes:      204800,
+			Severity:       "high",
+		},
+		{
+			EventID:        "evt_12346",
+			TimeStamp:      mainEventTime.Add(20 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "open_file",
+			Channel:        "local",
+			FileID:         "file_012",
+			FileName:       "info.pdf",
+			FileExt:        "pdf",
+			ContentClasses: []string{"legal"},
+			SizeBytes:      102400,
+			Severity:       "low",
+		},
+	}
+
+	for _, event := range events {
+		err := encoder.Encode(event)
+		if (err!=nil) {
+			return err
+		}
+	}
+
+	// Генерируем оставшиеся count-5 событий, начиная с индекса 5, так как предыдущие 5 уже составлены
+	for i := 5; i < count; i++ {
+		event := GenerateRandomEvent(rng, baseTime, i - 5, "external_send") // индекс с 0
+		err := encoder.Encode(event)
+		if (err != nil) {
+			return err
+		}
+	}
+	return nil
+}
+
+func GenerateUSBCopyStream(encoder *json.Encoder, rng *rand.Rand, count int, baseTime time.Time) error {
+
+	if (count < 4) {
+		return fmt.Errorf("Для данного сценария (usb_copy) значение count должно быть не менее 4")
+	}
+
+	user := "user_017"
+	machine := "pc_003"
+	department := "finance"
+	fileID := "file_779"
+	fileName := "report_finance.xlsx"
+	fileExt := "xlsx"
+	contentClasses := []string{"finance"}
+	destinationID := "dst_010"
+	destinationType := "usb"
+	destination := "usb_device_001"
+
+	// Определяем главное событие
+	mainEventTime := baseTime.Add(15 * time.Minute)
+	events := []Event{
+		{
+			EventID:         "evt_12345",
+			TimeStamp:       mainEventTime.Format(time.RFC3339),
+			UserID:          user,
+			MachineID:       machine,
+			Department:      department,
+			Action:          "copy_to_usb",
+			Channel:         "usb",
+			FileID:          fileID,
+			FileName:        fileName,
+			FileExt:         fileExt,
+			ContentClasses:  contentClasses,
+			DestinationID:   destinationID,
+			DestinationType: destinationType,
+			Destination:     destination,
+			SizeBytes:       102400,
+			Severity:        "high",
+		},
+		{
+			EventID:        "evt_12338",
+			TimeStamp:      mainEventTime.Add(-17 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "open_file",
+			Channel:        "local",
+			FileID:         fileID,
+			FileName:       fileName,
+			FileExt:        fileExt,
+			ContentClasses: contentClasses,
+			SizeBytes:      102400,
+			Severity:       "low",
+		},
+		{
+			EventID:        "evt_12347",
+			TimeStamp:      mainEventTime.Add(40 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "delete_file",
+			Channel:        "local",
+			FileID:         fileID,
+			FileName:       fileName,
+			FileExt:        fileExt,
+			ContentClasses: contentClasses,
+			SizeBytes:      204800,
+			Severity:       "high",
+		},
+		{
+			EventID:        "evt_12346",
+			TimeStamp:      mainEventTime.Add(16 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "open_file",
+			Channel:        "local",
+			FileID:         "file_012",
+			FileName:       "info.pdf",
+			FileExt:        "pdf",
+			ContentClasses: []string{"legal"},
+			SizeBytes:      102400,
+			Severity:       "low",
+		},
+	}
+
+	for _, event := range events {
+		err := encoder.Encode(event)
+		if (err != nil) {
+			return err
+		}
+	}
+
+	// Генерируем оставшиеся count-4 событий, начиная с индекса 4, так как предыдущие 4 уже составлены
+	for i := 4; i < count; i++ {
+		event := GenerateRandomEvent(rng, baseTime, i - 4, "") // индекс с 0
+		err := encoder.Encode(event)
+		if (err != nil) {
+			return err
+		}
+	}
+	return nil
+}
+
+func GenerateCloudUploadStream(encoder *json.Encoder, rng *rand.Rand, count int, baseTime time.Time) (error) {
+	if (count < 4) {
+		return fmt.Errorf("Для данного сценария (cloud_upload) значение count должно быть не менее 4")
+	}
+
+	user := "user_017"
+	machine := "pc_003"
+	department := "dev"
+	fileID := "file_780"
+	fileName := "project.zip"
+	fileExt := "zip"
+	contentClasses := []string{"source_code"}
+	destinationID := "dst_012"
+	destinationType := "cloud"
+	destination := "cloud_storage_001"
+
+	// Определяем главное событие
+	mainEventTime := baseTime.Add(17 * time.Minute)
+	events := []Event{
+		{
+			EventID:         "evt_12345",
+			TimeStamp:       mainEventTime.Format(time.RFC3339),
+			UserID:          user,
+			MachineID:       machine,
+			Department:      department,
+			Action:          "cloud_upload",
+			Channel:         "cloud",
+			FileID:          fileID,
+			FileName:        fileName,
+			FileExt:         fileExt,
+			ContentClasses:  contentClasses,
+			DestinationID:   destinationID,
+			DestinationType: destinationType,
+			Destination:     destination,
+			SizeBytes:       4476205,
+			Severity:        "high",
+		},
+		{
+			EventID:        "evt_12338",
+			TimeStamp:      mainEventTime.Add(-20 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "create_archive",
+			Channel:        "local",
+			FileID:         fileID,
+			FileName:       fileName,
+			FileExt:        fileExt,
+			ContentClasses: contentClasses,
+			SizeBytes:      4476205,
+			Severity:       "medium",
+		},
+		{
+			EventID:        "evt_12347",
+			TimeStamp:      mainEventTime.Add(40 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "delete_file",
+			Channel:        "local",
+			FileID:         fileID,
+			FileName:       fileName,
+			FileExt:        fileExt,
+			ContentClasses: contentClasses,
+			SizeBytes:      4476205,
+			Severity:       "high",
+		},
+		{
+			EventID:        "evt_12346",
+			TimeStamp:      mainEventTime.Add(16 * time.Minute).Format(time.RFC3339),
+			UserID:         user,
+			MachineID:      machine,
+			Department:     department,
+			Action:         "open_file",
+			Channel:        "local",
+			FileID:         "file_015",
+			FileName:       "info.pdf",
+			FileExt:        "pdf",
+			ContentClasses: []string{"legal"},
+			SizeBytes:      4476205,
+			Severity:       "low",
+		},
+	}
+
+
+	for _, event := range events {
+		err := encoder.Encode(event)
+		if (err != nil) {
+			return err
+		}
+	}
+
+	// Генерируем оставшиеся count-4 событий, начиная с индекса 4, так как предыдущие 4 уже составлены
+	for i := 4; i < count; i++ {
+		event := GenerateRandomEvent(rng, baseTime, i - 4, "") // индекс с 0
+		err := encoder.Encode(event)
+		if (err != nil) {
+			return err
+		}
+	}
+	return nil
+}
+

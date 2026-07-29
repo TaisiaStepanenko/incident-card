@@ -5,142 +5,174 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
 
 // Чтение событий из JSONL-файла
-func ReadEvents(filePath string, buildUserGroup, buildFileGroup, buildDestGroup bool) ([]*Event, Index, error) {
+func ReadEvents(filePath string, buildUserGroup, buildFileGroup, buildDestGroup bool) (Index, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, Index{}, fmt.Errorf("Не удалось открыть файл %s: %w", filePath, err)
+		return Index{}, fmt.Errorf("Не удалось открыть файл %s: %w", filePath, err)
 	}
 	defer file.Close()
 
 	// Оценка количества строк для предварительной аллокации
-	fileInfo, err := file.Stat() // получаем размер файла
-	if (err != nil) {
-		return nil, Index{}, fmt.Errorf("Не удалось получить информацию о файле: %w", err)
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return Index{}, fmt.Errorf("Не удалось получить информацию о файле: %w", err)
 	}
 
 	estimatedLines := 1000
-	if (fileInfo.Size() > 0) {
-		estimatedLines = int(fileInfo.Size() / 500) //  500 байт на строку
-		if (estimatedLines < 100) {
+	if fileInfo.Size() > 0 {
+		estimatedLines = int(fileInfo.Size() / 500)
+		if estimatedLines < 100 {
 			estimatedLines = 100
 		}
 	}
 
-	// Создаём срез указателей на все события с предварительной ёмкостью
-	allEvents := make([]*Event, 0, estimatedLines)
-
 	// Создаём индекс с предварительной ёмкостью
 	index := Index{
-		EventIdIndex: make(map[string]*Event, estimatedLines),
+		EventsById: make([]*Event, 0, estimatedLines),
+		TimeIndex:  make([]*Event, 0, estimatedLines),
 	}
 
-	if (buildUserGroup) {
+	if buildUserGroup {
 		index.UserIdGroup = make(map[string][]*Event, estimatedLines)
 	}
-	if (buildFileGroup) {
+	if buildFileGroup {
 		index.FileIdGroup = make(map[string][]*Event, estimatedLines)
 	}
-	if (buildDestGroup) {
+	if buildDestGroup {
 		index.DestinationIdGroup = make(map[string][]*Event, estimatedLines)
 	}
 
 	scanner := bufio.NewScanner(file)
 	lineNumber := 0
 	const maxLineLength = 10 * 1024 * 1024
-
 	buffer := make([]byte, 0, maxLineLength+maxLineLength)
 	scanner.Buffer(buffer, maxLineLength+maxLineLength)
+
+	// Интернирование строк: пул для часто повторяющихся значений
+	stringPool := make(map[string]string)
+	intern := func(s string) string {
+		if s == "" {
+			return ""
+		}
+		if cached, ok := stringPool[s]; ok {
+			return cached
+		}
+		stringPool[s] = s
+		return s
+	}
 
 	for scanner.Scan() {
 		lineNumber++
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
-			continue // пропускаем пустые строки
+			continue
 		}
 
 		// Удаление BOM
-		if (lineNumber == 1 && strings.HasPrefix(line, "\xEF\xBB\xBF")) {
+		if lineNumber == 1 && strings.HasPrefix(line, "\xEF\xBB\xBF") {
 			line = strings.TrimPrefix(line, "\xEF\xBB\xBF")
 		}
 
 		if len(line) > maxLineLength {
-			return nil, Index{}, fmt.Errorf("%s:%d: cтрока слишком длинная\n", filePath, lineNumber) // проверяем слишком длинные значения
+			return Index{}, fmt.Errorf("%s:%d: строка слишком длинная\n", filePath, lineNumber)
 		}
 
 		var newEvent Event
-
-		err := json.Unmarshal([]byte(line), &newEvent) // декодирование JSON
-
-		if err != nil {
-			return nil, Index{}, fmt.Errorf("%s:%d: Ошибка парсинга строки: %v\n", filePath, lineNumber, err)
+		if err := json.Unmarshal([]byte(line), &newEvent); err != nil {
+			return Index{}, fmt.Errorf("%s:%d: Ошибка парсинга строки: %v\n", filePath, lineNumber, err)
 		}
 
 		// Проверка обязательных полей
-		if (newEvent.EventID == "" || newEvent.TimeStamp == "" || newEvent.UserID == "" || newEvent.MachineID == "" || newEvent.Action == "" || newEvent.Channel == "") {
-			return nil, Index{}, fmt.Errorf("%s:%d: Пропущено обязательное поле\n", filePath, lineNumber)
+		if newEvent.EventID == "" || newEvent.TimeStamp == "" || newEvent.UserID == "" ||
+			newEvent.MachineID == "" || newEvent.Action == "" || newEvent.Channel == "" {
+			return Index{}, fmt.Errorf("%s:%d: Пропущено обязательное поле\n", filePath, lineNumber)
 		}
 
 		// Проверка формата времени RFC3339
-		_, err = time.Parse(time.RFC3339, newEvent.TimeStamp)
-		if (err != nil) {
-			return nil, Index{}, fmt.Errorf("%s:%d: Неверный формат поля timestamp: %w\n", filePath, lineNumber, err)
+		if _, err := time.Parse(time.RFC3339, newEvent.TimeStamp); err != nil {
+			return Index{}, fmt.Errorf("%s:%d: Неверный формат поля timestamp: %w\n", filePath, lineNumber, err)
 		}
 
 		// Проверка отрицательного размера
-		if (newEvent.SizeBytes < 0) {
-			return nil, Index{}, fmt.Errorf("%s:%d: Отрицательное значение поля size_bytes\n", filePath, lineNumber)
-		}
-
-		// Проверка дубликатов event_id
-		_, isExist := index.EventIdIndex[newEvent.EventID]
-		if (isExist) {
-			return nil, Index{}, fmt.Errorf("%s:%d: Дублирование значения event_id %s\n", filePath, lineNumber, newEvent.EventID)
+		if newEvent.SizeBytes < 0 {
+			return Index{}, fmt.Errorf("%s:%d: Отрицательное значение поля size_bytes\n", filePath, lineNumber)
 		}
 
 		event := &Event{
-			EventID: newEvent.EventID,
-			TimeStamp: newEvent.TimeStamp,
-			UserID: newEvent.UserID,
-			MachineID: newEvent.MachineID,
-			Department: newEvent.Department,
-			Action: newEvent.Action,
-			Channel: newEvent.Channel,
-			FileID: newEvent.FileID,
-			FileName: newEvent.FileName,
-			FileExt: newEvent.FileExt,
-			ContentClasses: newEvent.ContentClasses,
-			DestinationID: newEvent.DestinationID,
-			DestinationType: newEvent.DestinationType,
-			Destination: newEvent.Destination,
-			SizeBytes: newEvent.SizeBytes,
-			Severity: newEvent.Severity,
-			LineNumber: lineNumber,
+			EventID:         newEvent.EventID,
+			TimeStamp:       newEvent.TimeStamp,
+			UserID:          intern(newEvent.UserID),
+			MachineID:       intern(newEvent.MachineID),
+			Department:      intern(newEvent.Department),
+			Action:          intern(newEvent.Action),
+			Channel:         intern(newEvent.Channel),
+			FileID:          intern(newEvent.FileID),
+			FileName:        intern(newEvent.FileName),
+			FileExt:         intern(newEvent.FileExt),
+			ContentClasses:  internSlice(newEvent.ContentClasses, intern),
+			DestinationID:   intern(newEvent.DestinationID),
+			DestinationType: intern(newEvent.DestinationType),
+			Destination:     intern(newEvent.Destination),
+			SizeBytes:       newEvent.SizeBytes,
+			Severity:        intern(newEvent.Severity),
+			LineNumber:      lineNumber,
 		}
 
-		// Заполняем индекс
-		index.EventIdIndex[event.EventID] = event
-		if (buildUserGroup) {
+		index.EventsById = append(index.EventsById, event)
+		if buildUserGroup {
 			index.UserIdGroup[event.UserID] = append(index.UserIdGroup[event.UserID], event)
 		}
-		if (buildFileGroup && event.FileID != "") {
+		if buildFileGroup && event.FileID != "" {
 			index.FileIdGroup[event.FileID] = append(index.FileIdGroup[event.FileID], event)
 		}
-		if (buildDestGroup && event.DestinationID != "") {
+		if buildDestGroup && event.DestinationID != "" {
 			index.DestinationIdGroup[event.DestinationID] = append(index.DestinationIdGroup[event.DestinationID], event)
 		}
-		allEvents = append(allEvents, event)
+		index.TimeIndex = append(index.TimeIndex, event)
 	}
 
-	err = scanner.Err()
-	if err != nil {
-		return nil, Index{}, fmt.Errorf("Ошибка при чтении файла %s: %w", filePath, err) // ошибка при сканировнии
+	if err := scanner.Err(); err != nil {
+		return Index{}, fmt.Errorf("Ошибка при чтении файла %s: %w", filePath, err)
 	}
 
-	return allEvents, index, nil
+	// Сортировка EventsById по event_id
+	sort.Slice(index.EventsById, func(i, j int) bool {
+		return index.EventsById[i].EventID < index.EventsById[j].EventID
+	})
 
+	for i := 1; i < len(index.EventsById); i++ {
+		if (index.EventsById[i].EventID == index.EventsById[i-1].EventID) {
+			return Index{}, fmt.Errorf("%s:%d: Дублирование значения event_id %s\n",
+				filePath, index.EventsById[i].LineNumber, index.EventsById[i].EventID)
+		}
+	}
+
+	// Сортировка TimeIndex по времени
+	sort.Slice(index.TimeIndex, func(i, j int) bool {
+		ti, _ := time.Parse(time.RFC3339, index.TimeIndex[i].TimeStamp)
+		tj, _ := time.Parse(time.RFC3339, index.TimeIndex[j].TimeStamp)
+		if ti.Equal(tj) {
+			return index.TimeIndex[i].EventID < index.TimeIndex[j].EventID
+		}
+		return ti.Before(tj)
+	})
+
+	return index, nil
+}
+
+func internSlice(src []string, intern func(string) string) []string {
+    if len(src) == 0 {
+        return nil
+    }
+    dst := make([]string, len(src))
+    for i, s := range src {
+        dst[i] = intern(s)
+    }
+    return dst
 }

@@ -4,12 +4,12 @@ __ID инцидента:__
 
 ## Краткое резюме ##
 
-Пользователь ***user\_017*** совершил действие ***email\_send*** с файлом ***client\_base.xlsx*** в адрес ***external\_email\_001***.
+Пользователь ***user_017*** совершил действие ***email_send*** с файлом ***client_base.xlsx*** в адрес ***external_email_001***.
 
 ## Главное событие ##
 
-- __Event ID:__ evt\_12345
-- __Action:__ email\_send
+- __Event ID:__ evt_12345
+- __Action:__ email_send
 ## Контекст до события ##
 
 Подходящих для данного раздела событий не найдено.
@@ -20,56 +20,56 @@ __ID инцидента:__
 
 ## События того же пользователя ##
 
-- evt\_12345
-- evt\_12338
-- evt\_12339
-- evt\_12347
-- evt\_12346
-- evt\_0100001
-- evt\_0100003
-- evt\_0100006
-- evt\_0100007
-- evt\_0100029
-- evt\_0100035
-- evt\_0100043
-- evt\_0100047
-- evt\_0100051
-- evt\_0100052
-- evt\_0100059
-- evt\_0100065
-- evt\_0100068
-- evt\_0100072
-- evt\_0100077
-- evt\_0100079
-- evt\_0100083
-- evt\_0100084
-- evt\_0100091
-- evt\_0100092
-- evt\_0100099
-- evt\_0100109
-- evt\_0100112
-- evt\_0100114
-- evt\_0100116
-- evt\_0100117
-- evt\_0100124
-- evt\_0100133
-- evt\_0100142
-- evt\_0100143
-- evt\_0100148
-- evt\_0100155
-- evt\_0100158
-- evt\_0100165
-- evt\_0100170
-- evt\_0100179
-- evt\_0100184
-- evt\_0100200
-- evt\_0100201
-- evt\_0100204
-- evt\_0100205
-- evt\_0100210
-- evt\_0100212
-- evt\_0100213
-- evt\_0100216
+- evt_0900335
+- evt_12338
+- evt_0678433
+- evt_0967195
+- evt_0693641
+- evt_0744502
+- evt_0535668
+- evt_0464063
+- evt_0530151
+- evt_0795205
+- evt_1086080
+- evt_0175877
+- evt_0493974
+- evt_0960475
+- evt_0170619
+- evt_0561160
+- evt_0707895
+- evt_0995258
+- evt_0147792
+- evt_0231943
+- evt_0336469
+- evt_0957897
+- evt_0376285
+- evt_0858849
+- evt_0930728
+- evt_0312804
+- evt_0790938
+- evt_0125326
+- evt_0532627
+- evt_0146076
+- evt_0765204
+- evt_0786561
+- evt_0270771
+- evt_0707858
+- evt_0304685
+- evt_0463351
+- evt_0440531
+- evt_0489770
+- evt_0530350
+- evt_0705929
+- evt_0635805
+- evt_0889494
+- evt_0970899
+- evt_0315665
+- evt_0394089
+- evt_0724968
+- evt_0824275
+- evt_0134922
+- evt_0250804
+- evt_0174065
 
 ## События с тем же файлом ##
 
@@ -85,56 +85,56 @@ __ID инцидента:__
 
 | Время | Событие | Пользователь | Действие | Файл | Адресат | Важность | Роль |
 |:---|:---|:---|:---|:---|:---|:---:|:---:|
-|2026-01-02T18:00:00Z|evt\_0900335|user\_017|copy\_file|archive.zip|external\_email\_27@mail.com|critical|same\_user|
-|2026-01-02T18:00:00Z|evt\_12338|user\_017|open\_file|client\_base.xlsx|-|low|same\_user|
-|2026-01-02T18:00:01Z|evt\_0678433|user\_017|cloud\_upload|doc.docx|external\_email\_25@mail.com|critical|same\_user|
-|2026-01-02T18:00:01Z|evt\_0967195|user\_017|create\_archive|doc.docx|external\_email\_72@mail.com|high|same\_user|
-|2026-01-02T18:00:02Z|evt\_0693641|user\_017|messenger\_send|report.xlsx|external\_email\_62@mail.com|medium|same\_user|
-|2026-01-02T18:00:03Z|evt\_0744502|user\_017|create\_archive|archive.zip|external\_email\_75@mail.com|critical|same\_user|
-|2026-01-02T18:00:04Z|evt\_0535668|user\_017|cloud\_upload|report.xlsx|external\_email\_51@mail.com|critical|same\_user|
-|2026-01-02T18:00:05Z|evt\_0464063|user\_017|cloud\_upload|archive.zip|external\_email\_69@mail.com|high|same\_user|
-|2026-01-02T18:00:05Z|evt\_0530151|user\_017|messenger\_send|backup.sql|external\_email\_25@mail.com|critical|same\_user|
-|2026-01-02T18:00:05Z|evt\_0795205|user\_017|print\_file|backup.sql|external\_email\_11@mail.com|medium|same\_user|
-|2026-01-02T18:00:10Z|evt\_1086080|user\_017|create\_archive|data.pdf|external\_email\_10@mail.com|critical|same\_user|
-|2026-01-02T18:00:12Z|evt\_0175877|user\_017|delete\_file|archive.zip|external\_email\_76@mail.com|critical|same\_user|
-|2026-01-02T18:00:12Z|evt\_0493974|user\_017|copy\_to\_usb|backup.sql|external\_email\_60@mail.com|critical|same\_user|
-|2026-01-02T18:00:12Z|evt\_0960475|user\_017|email\_send|main.go|external\_email\_41@mail.com|critical|same\_user|
-|2026-01-02T18:00:13Z|evt\_0170619|user\_017|print\_file|backup.sql|external\_email\_62@mail.com|low|same\_user|
-|2026-01-02T18:00:15Z|evt\_0561160|user\_017|open\_file|doc.docx|external\_email\_99@mail.com|critical|same\_user|
-|2026-01-02T18:00:17Z|evt\_0707895|user\_017|open\_file|data.pdf|external\_email\_53@mail.com|low|same\_user|
-|2026-01-02T18:00:18Z|evt\_0995258|user\_017|open\_file|archive.zip|external\_email\_88@mail.com|medium|same\_user|
-|2026-01-02T18:00:20Z|evt\_0147792|user\_017|copy\_to\_usb|data.pdf|external\_email\_70@mail.com|high|same\_user|
-|2026-01-02T18:00:20Z|evt\_0231943|user\_017|print\_file|backup.sql|external\_email\_15@mail.com|low|same\_user|
-|2026-01-02T18:00:20Z|evt\_0336469|user\_017|copy\_file|report.xlsx|external\_email\_7@mail.com|medium|same\_user|
-|2026-01-02T18:00:20Z|evt\_0957897|user\_017|email\_send|report.xlsx|external\_email\_89@mail.com|high|same\_user|
-|2026-01-02T18:00:21Z|evt\_0376285|user\_017|copy\_to\_usb|main.go|external\_email\_26@mail.com|low|same\_user|
-|2026-01-02T18:00:22Z|evt\_0858849|user\_017|create\_archive|main.go|external\_email\_91@mail.com|critical|same\_user|
-|2026-01-02T18:00:22Z|evt\_0930728|user\_017|email\_send|test.txt|external\_email\_57@mail.com|medium|same\_user|
-|2026-01-02T18:00:24Z|evt\_0312804|user\_017|copy\_file|main.go|external\_email\_2@mail.com|high|same\_user|
-|2026-01-02T18:00:25Z|evt\_0790938|user\_017|delete\_file|data.pdf|external\_email\_35@mail.com|critical|same\_user|
-|2026-01-02T18:00:27Z|evt\_0125326|user\_017|open\_file|doc.docx|external\_email\_81@mail.com|critical|same\_user|
-|2026-01-02T18:00:27Z|evt\_0532627|user\_017|cloud\_upload|doc.docx|external\_email\_31@mail.com|high|same\_user|
-|2026-01-02T18:00:28Z|evt\_0146076|user\_017|messenger\_send|archive.zip|external\_email\_66@mail.com|high|same\_user|
-|2026-01-02T18:00:28Z|evt\_0765204|user\_017|delete\_file|data.pdf|external\_email\_33@mail.com|medium|same\_user|
-|2026-01-02T18:00:28Z|evt\_0786561|user\_017|copy\_to\_usb|archive.zip|external\_email\_15@mail.com|critical|same\_user|
-|2026-01-02T18:00:29Z|evt\_0270771|user\_017|messenger\_send|data.pdf|external\_email\_65@mail.com|high|same\_user|
-|2026-01-02T18:00:29Z|evt\_0707858|user\_017|cloud\_upload|main.go|external\_email\_30@mail.com|low|same\_user|
-|2026-01-02T18:00:31Z|evt\_0304685|user\_017|open\_file|doc.docx|external\_email\_63@mail.com|high|same\_user|
-|2026-01-02T18:00:31Z|evt\_0463351|user\_017|messenger\_send|doc.docx|external\_email\_4@mail.com|critical|same\_user|
-|2026-01-02T18:00:34Z|evt\_0440531|user\_017|cloud\_upload|report.xlsx|external\_email\_96@mail.com|medium|same\_user|
-|2026-01-02T18:00:35Z|evt\_0489770|user\_017|create\_archive|main.go|external\_email\_26@mail.com|medium|same\_user|
-|2026-01-02T18:00:36Z|evt\_0530350|user\_017|cloud\_upload|main.go|external\_email\_12@mail.com|critical|same\_user|
-|2026-01-02T18:00:36Z|evt\_0705929|user\_017|delete\_file|test.txt|external\_email\_4@mail.com|high|same\_user|
-|2026-01-02T18:00:37Z|evt\_0635805|user\_017|cloud\_upload|backup.sql|external\_email\_43@mail.com|high|same\_user|
-|2026-01-02T18:00:37Z|evt\_0889494|user\_017|create\_archive|report.xlsx|external\_email\_45@mail.com|medium|same\_user|
-|2026-01-02T18:00:37Z|evt\_0970899|user\_017|messenger\_send|main.go|external\_email\_87@mail.com|medium|same\_user|
-|2026-01-02T18:00:41Z|evt\_0315665|user\_017|email\_send|doc.docx|external\_email\_81@mail.com|low|same\_user|
-|2026-01-02T18:00:41Z|evt\_0394089|user\_017|print\_file|main.go|external\_email\_32@mail.com|medium|same\_user|
-|2026-01-02T18:00:42Z|evt\_0724968|user\_017|cloud\_upload|report.xlsx|external\_email\_34@mail.com|high|same\_user|
-|2026-01-02T18:00:43Z|evt\_0824275|user\_017|email\_send|test.txt|external\_email\_77@mail.com|critical|same\_user|
-|2026-01-02T18:00:44Z|evt\_0134922|user\_017|copy\_to\_usb|report.xlsx|external\_email\_81@mail.com|low|same\_user|
-|2026-01-02T18:00:45Z|evt\_0250804|user\_017|email\_send|main.go|external\_email\_69@mail.com|critical|same\_user|
-|2026-01-02T18:10:00Z|evt\_12345|user\_017|email\_send|client\_base.xlsx|external\_email\_001|high|main\_event|
+|2026-01-02T18:00:00Z|evt_0900335|user_017|copy_file|archive.zip|external_email_27@mail.com|critical|same_user|
+|2026-01-02T18:00:00Z|evt_12338|user_017|open_file|client_base.xlsx|-|low|same_user|
+|2026-01-02T18:00:01Z|evt_0678433|user_017|cloud_upload|doc.docx|external_email_25@mail.com|critical|same_user|
+|2026-01-02T18:00:01Z|evt_0967195|user_017|create_archive|doc.docx|external_email_72@mail.com|high|same_user|
+|2026-01-02T18:00:02Z|evt_0693641|user_017|messenger_send|report.xlsx|external_email_62@mail.com|medium|same_user|
+|2026-01-02T18:00:03Z|evt_0744502|user_017|create_archive|archive.zip|external_email_75@mail.com|critical|same_user|
+|2026-01-02T18:00:04Z|evt_0535668|user_017|cloud_upload|report.xlsx|external_email_51@mail.com|critical|same_user|
+|2026-01-02T18:00:05Z|evt_0464063|user_017|cloud_upload|archive.zip|external_email_69@mail.com|high|same_user|
+|2026-01-02T18:00:05Z|evt_0530151|user_017|messenger_send|backup.sql|external_email_25@mail.com|critical|same_user|
+|2026-01-02T18:00:05Z|evt_0795205|user_017|print_file|backup.sql|external_email_11@mail.com|medium|same_user|
+|2026-01-02T18:00:10Z|evt_1086080|user_017|create_archive|data.pdf|external_email_10@mail.com|critical|same_user|
+|2026-01-02T18:00:12Z|evt_0175877|user_017|delete_file|archive.zip|external_email_76@mail.com|critical|same_user|
+|2026-01-02T18:00:12Z|evt_0493974|user_017|copy_to_usb|backup.sql|external_email_60@mail.com|critical|same_user|
+|2026-01-02T18:00:12Z|evt_0960475|user_017|email_send|main.go|external_email_41@mail.com|critical|same_user|
+|2026-01-02T18:00:13Z|evt_0170619|user_017|print_file|backup.sql|external_email_62@mail.com|low|same_user|
+|2026-01-02T18:00:15Z|evt_0561160|user_017|open_file|doc.docx|external_email_99@mail.com|critical|same_user|
+|2026-01-02T18:00:17Z|evt_0707895|user_017|open_file|data.pdf|external_email_53@mail.com|low|same_user|
+|2026-01-02T18:00:18Z|evt_0995258|user_017|open_file|archive.zip|external_email_88@mail.com|medium|same_user|
+|2026-01-02T18:00:20Z|evt_0147792|user_017|copy_to_usb|data.pdf|external_email_70@mail.com|high|same_user|
+|2026-01-02T18:00:20Z|evt_0231943|user_017|print_file|backup.sql|external_email_15@mail.com|low|same_user|
+|2026-01-02T18:00:20Z|evt_0336469|user_017|copy_file|report.xlsx|external_email_7@mail.com|medium|same_user|
+|2026-01-02T18:00:20Z|evt_0957897|user_017|email_send|report.xlsx|external_email_89@mail.com|high|same_user|
+|2026-01-02T18:00:21Z|evt_0376285|user_017|copy_to_usb|main.go|external_email_26@mail.com|low|same_user|
+|2026-01-02T18:00:22Z|evt_0858849|user_017|create_archive|main.go|external_email_91@mail.com|critical|same_user|
+|2026-01-02T18:00:22Z|evt_0930728|user_017|email_send|test.txt|external_email_57@mail.com|medium|same_user|
+|2026-01-02T18:00:24Z|evt_0312804|user_017|copy_file|main.go|external_email_2@mail.com|high|same_user|
+|2026-01-02T18:00:25Z|evt_0790938|user_017|delete_file|data.pdf|external_email_35@mail.com|critical|same_user|
+|2026-01-02T18:00:27Z|evt_0125326|user_017|open_file|doc.docx|external_email_81@mail.com|critical|same_user|
+|2026-01-02T18:00:27Z|evt_0532627|user_017|cloud_upload|doc.docx|external_email_31@mail.com|high|same_user|
+|2026-01-02T18:00:28Z|evt_0146076|user_017|messenger_send|archive.zip|external_email_66@mail.com|high|same_user|
+|2026-01-02T18:00:28Z|evt_0765204|user_017|delete_file|data.pdf|external_email_33@mail.com|medium|same_user|
+|2026-01-02T18:00:28Z|evt_0786561|user_017|copy_to_usb|archive.zip|external_email_15@mail.com|critical|same_user|
+|2026-01-02T18:00:29Z|evt_0270771|user_017|messenger_send|data.pdf|external_email_65@mail.com|high|same_user|
+|2026-01-02T18:00:29Z|evt_0707858|user_017|cloud_upload|main.go|external_email_30@mail.com|low|same_user|
+|2026-01-02T18:00:31Z|evt_0304685|user_017|open_file|doc.docx|external_email_63@mail.com|high|same_user|
+|2026-01-02T18:00:31Z|evt_0463351|user_017|messenger_send|doc.docx|external_email_4@mail.com|critical|same_user|
+|2026-01-02T18:00:34Z|evt_0440531|user_017|cloud_upload|report.xlsx|external_email_96@mail.com|medium|same_user|
+|2026-01-02T18:00:35Z|evt_0489770|user_017|create_archive|main.go|external_email_26@mail.com|medium|same_user|
+|2026-01-02T18:00:36Z|evt_0530350|user_017|cloud_upload|main.go|external_email_12@mail.com|critical|same_user|
+|2026-01-02T18:00:36Z|evt_0705929|user_017|delete_file|test.txt|external_email_4@mail.com|high|same_user|
+|2026-01-02T18:00:37Z|evt_0635805|user_017|cloud_upload|backup.sql|external_email_43@mail.com|high|same_user|
+|2026-01-02T18:00:37Z|evt_0889494|user_017|create_archive|report.xlsx|external_email_45@mail.com|medium|same_user|
+|2026-01-02T18:00:37Z|evt_0970899|user_017|messenger_send|main.go|external_email_87@mail.com|medium|same_user|
+|2026-01-02T18:00:41Z|evt_0315665|user_017|email_send|doc.docx|external_email_81@mail.com|low|same_user|
+|2026-01-02T18:00:41Z|evt_0394089|user_017|print_file|main.go|external_email_32@mail.com|medium|same_user|
+|2026-01-02T18:00:42Z|evt_0724968|user_017|cloud_upload|report.xlsx|external_email_34@mail.com|high|same_user|
+|2026-01-02T18:00:43Z|evt_0824275|user_017|email_send|test.txt|external_email_77@mail.com|critical|same_user|
+|2026-01-02T18:00:44Z|evt_0134922|user_017|copy_to_usb|report.xlsx|external_email_81@mail.com|low|same_user|
+|2026-01-02T18:00:45Z|evt_0250804|user_017|email_send|main.go|external_email_69@mail.com|critical|same_user|
+|2026-01-02T18:10:00Z|evt_12345|user_017|email_send|client_base.xlsx|external_email_001|high|main_event|
 
 ## Подозрительные факторы ##
 
@@ -142,53 +142,53 @@ __ID инцидента:__
 
 ## Ссылки на исходные события ##
 
-- ___evt\_0900335___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __800341__
-- ___evt\_12338___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __2__
-- ___evt\_0678433___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __578439__
-- ___evt\_0967195___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __867201__
-- ___evt\_0693641___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __593647__
-- ___evt\_0744502___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __644508__
-- ___evt\_0535668___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __435674__
-- ___evt\_0464063___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __364069__
-- ___evt\_0530151___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __430157__
-- ___evt\_0795205___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __695211__
-- ___evt\_1086080___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __986086__
-- ___evt\_0175877___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __75883__
-- ___evt\_0493974___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __393980__
-- ___evt\_0960475___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __860481__
-- ___evt\_0170619___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __70625__
-- ___evt\_0561160___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __461166__
-- ___evt\_0707895___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __607901__
-- ___evt\_0995258___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __895264__
-- ___evt\_0147792___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __47798__
-- ___evt\_0231943___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __131949__
-- ___evt\_0336469___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __236475__
-- ___evt\_0957897___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __857903__
-- ___evt\_0376285___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __276291__
-- ___evt\_0858849___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __758855__
-- ___evt\_0930728___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __830734__
-- ___evt\_0312804___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __212810__
-- ___evt\_0790938___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __690944__
-- ___evt\_0125326___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __25332__
-- ___evt\_0532627___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __432633__
-- ___evt\_0146076___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __46082__
-- ___evt\_0765204___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __665210__
-- ___evt\_0786561___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __686567__
-- ___evt\_0270771___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __170777__
-- ___evt\_0707858___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __607864__
-- ___evt\_0304685___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __204691__
-- ___evt\_0463351___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __363357__
-- ___evt\_0440531___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __340537__
-- ___evt\_0489770___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __389776__
-- ___evt\_0530350___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __430356__
-- ___evt\_0705929___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __605935__
-- ___evt\_0635805___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __535811__
-- ___evt\_0889494___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __789500__
-- ___evt\_0970899___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __870905__
-- ___evt\_0315665___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __215671__
-- ___evt\_0394089___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __294095__
-- ___evt\_0724968___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __624974__
-- ___evt\_0824275___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __724281__
-- ___evt\_0134922___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __34928__
-- ___evt\_0250804___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __150810__
-- ___evt\_12345___: файл __D:\\Go\\incident-card\\benchmarks\\generated\_events.jsonl__ строка __1__
+- ___evt_0900335___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __800341__
+- ___evt_12338___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __2__
+- ___evt_0678433___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __578439__
+- ___evt_0967195___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __867201__
+- ___evt_0693641___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __593647__
+- ___evt_0744502___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __644508__
+- ___evt_0535668___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __435674__
+- ___evt_0464063___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __364069__
+- ___evt_0530151___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __430157__
+- ___evt_0795205___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __695211__
+- ___evt_1086080___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __986086__
+- ___evt_0175877___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __75883__
+- ___evt_0493974___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __393980__
+- ___evt_0960475___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __860481__
+- ___evt_0170619___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __70625__
+- ___evt_0561160___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __461166__
+- ___evt_0707895___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __607901__
+- ___evt_0995258___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __895264__
+- ___evt_0147792___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __47798__
+- ___evt_0231943___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __131949__
+- ___evt_0336469___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __236475__
+- ___evt_0957897___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __857903__
+- ___evt_0376285___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __276291__
+- ___evt_0858849___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __758855__
+- ___evt_0930728___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __830734__
+- ___evt_0312804___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __212810__
+- ___evt_0790938___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __690944__
+- ___evt_0125326___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __25332__
+- ___evt_0532627___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __432633__
+- ___evt_0146076___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __46082__
+- ___evt_0765204___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __665210__
+- ___evt_0786561___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __686567__
+- ___evt_0270771___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __170777__
+- ___evt_0707858___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __607864__
+- ___evt_0304685___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __204691__
+- ___evt_0463351___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __363357__
+- ___evt_0440531___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __340537__
+- ___evt_0489770___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __389776__
+- ___evt_0530350___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __430356__
+- ___evt_0705929___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __605935__
+- ___evt_0635805___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __535811__
+- ___evt_0889494___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __789500__
+- ___evt_0970899___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __870905__
+- ___evt_0315665___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __215671__
+- ___evt_0394089___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __294095__
+- ___evt_0724968___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __624974__
+- ___evt_0824275___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __724281__
+- ___evt_0134922___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __34928__
+- ___evt_0250804___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __150810__
+- ___evt_12345___: файл __D:\\Go\\incident-card\\benchmarks\\generated_events.jsonl__ строка __1__

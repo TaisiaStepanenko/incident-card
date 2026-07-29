@@ -14,14 +14,14 @@ func MakeLimitSlice(events []*Event, limit int) []*Event {
 	return events
 }
 
-func BuildAnswer(mainEvent *Event, index Index, events []*Event, fileName string, req Request, rules []Rule) (Answer, error) {
+func BuildAnswer(mainEvent *Event, index Index, fileName string, req Request, rules []Rule) (Answer, error) {
 
 	if (req.MaxEventsPerSection < 1 || req.MaxEventsPerSection > 1000) {
 		return Answer{}, fmt.Errorf("max_events_per_section должен быть в диапозоне [1, 1000]")
 	}
 	
 	// Сбор событий по временному контексту
-	timeEvents, err := GetEventsInTimeRange(events, mainEvent.TimeStamp, req.WindowBefore, req.WindowAfter)
+	timeEvents, err := GetEventsInTimeRange(index, mainEvent.TimeStamp, req.WindowBefore, req.WindowAfter)
 	if err != nil {
 		return Answer{}, fmt.Errorf("Ошибка при получении временного контекста событий: %v", err)
 	}
@@ -30,18 +30,21 @@ func BuildAnswer(mainEvent *Event, index Index, events []*Event, fileName string
 	var userEvents []*Event
 	if req.IncludeSameUser != nil && *req.IncludeSameUser {
 		userEvents = index.GetEventByUser(mainEvent.UserID)
+		sortEventsByTime(userEvents)
 	}
 
 	// События с файлом главного события (если есть в запросе)
 	var fileEvents []*Event
 	if req.IncludeSameFile != nil && *req.IncludeSameFile && mainEvent.FileID != "" {
 		fileEvents = index.GetEventByFile(mainEvent.FileID)
+		sortEventsByTime(fileEvents)
 	}
 
 	// События адресата главного события (если есть в запросе)
 	var destinationEvents []*Event
 	if req.IncludeSameDestination != nil && *req.IncludeSameDestination && mainEvent.DestinationID != "" {
 		destinationEvents = index.GetEventByDestination(mainEvent.DestinationID)
+		sortEventsByTime(destinationEvents)
 	}
 
 	// Устанавливаем ограничение размера разделов (по умолчанию 50)
@@ -110,8 +113,8 @@ func BuildAnswer(mainEvent *Event, index Index, events []*Event, fileName string
 
 	summary := BuildSummary(mainEvent)
 
-	contextBefore = MakeLimitSlice(contextBefore, limit)
-	contextAfter = MakeLimitSlice(contextAfter, limit)
+	contextBefore = LimitClosestBefore(contextBefore, limit)
+	contextAfter = LimitClosestAfter(contextAfter, limit)
 	userEvents = MakeLimitSlice(userEvents, limit)
 	fileEvents = MakeLimitSlice(fileEvents, limit)
 	destinationEvents = MakeLimitSlice(destinationEvents, limit)
@@ -146,6 +149,35 @@ func BuildAnswer(mainEvent *Event, index Index, events []*Event, fileName string
 
 func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fileEvents, destinationEvents []*Event) []TimelineItem {
 
+	// Собираем все события в один срез
+	allEvents := make([]*Event, 0, len(contextBefore)+len(contextAfter)+len(userEvents)+len(fileEvents)+len(destinationEvents)+1)
+	allEvents = append(allEvents, mainEvent)
+	allEvents = append(allEvents, contextBefore...)
+	allEvents = append(allEvents, contextAfter...)
+	allEvents = append(allEvents, userEvents...)
+	allEvents = append(allEvents, fileEvents...)
+	allEvents = append(allEvents, destinationEvents...)
+
+	// Сортировка по времени, при равенстве времени сортируем по event_id
+	sort.Slice(allEvents, func(i, j int) bool {
+		time_i, _ := time.Parse(time.RFC3339, allEvents[i].TimeStamp)
+		time_j, _ := time.Parse(time.RFC3339, allEvents[j].TimeStamp)
+		if time_i.Equal(time_j) {
+			return allEvents[i].EventID < allEvents[j].EventID
+		}
+		return time_i.Before(time_j)
+	})
+
+	// Удаляем дубликаты
+	seen := make(map[string]bool)
+	uniqueEvents := make([]*Event, 0, len(allEvents))
+	for _, event := range allEvents {
+		if (!seen[event.EventID]) {
+			seen[event.EventID] = true
+			uniqueEvents = append(uniqueEvents, event)
+		}
+	}
+
 	roleMap := make(map[string]Role) // соответствие события и его роли
 
 	// поэтапно устанавливаем роли для всех списков, начиная от менее приоритетного,
@@ -172,33 +204,10 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 
 	roleMap[mainEvent.EventID] = RoleMain // устанавливаем main_event главному событию
 
-	// map уникальных событий (по event_id)
-	allUniqueEventsMap := make(map[string]*Event)
-	allUniqueEventsMap[mainEvent.EventID] = mainEvent
-
-	for _, event := range userEvents {
-		allUniqueEventsMap[event.EventID] = event
-	}
-
-	for _, event := range destinationEvents {
-		allUniqueEventsMap[event.EventID] = event
-	}
-
-	for _, event := range fileEvents {
-		allUniqueEventsMap[event.EventID] = event
-	}
-
-	for _, event := range contextBefore {
-		allUniqueEventsMap[event.EventID] = event
-	}
-
-	for _, event := range contextAfter {
-		allUniqueEventsMap[event.EventID] = event
-	}
 
 	// собираем срез []TimelineItem
-	timelineItems := make([]TimelineItem, 0, len(allUniqueEventsMap))
-	for _, event := range allUniqueEventsMap {
+	timelineItems := make([]TimelineItem, 0, len(uniqueEvents))
+	for _, event := range uniqueEvents {
 		var fileName, destination, severity string
 		if event.FileName != "" {
 			fileName = event.FileName
@@ -222,19 +231,26 @@ func BuildTimeline(mainEvent *Event, contextBefore, contextAfter, userEvents, fi
 		})
 	}
 
-	// Сортировка по времени, при равенстве времени сортируем по event_id
-	sort.Slice(timelineItems, func(i, j int) bool {
-		time_i, _ := time.Parse(time.RFC3339, timelineItems[i].Timestamp)
-		time_j, _ := time.Parse(time.RFC3339, timelineItems[j].Timestamp)
-		if time_i.Equal(time_j) {
-			return timelineItems[i].EventID < timelineItems[j].EventID
-		}
-		return time_i.Before(time_j)
-	})
-
 	return timelineItems
 
 }
+
+// Оставляет последние limit событий (ближайшие к главному по времени)
+func LimitClosestBefore(events []*Event, limit int) []*Event {
+	if (len(events) <= limit) {
+		return events
+	}
+	return events[len(events)-limit:]
+}
+
+// Оставляет первые limit событий (ближайшие к главному по времени)
+func LimitClosestAfter(events []*Event, limit int) []*Event {
+	if (len(events) <= limit) {
+		return events
+	}
+	return events[:limit]
+}
+
 
 func BuildSummary(event *Event) string {
 	var summary strings.Builder
@@ -420,7 +436,6 @@ func escapeMarkdownText(s string) string {
 	replacer := strings.NewReplacer(
 		"\\", "\\\\",
         "*", "\\*",
-        "_", "\\_",
         "#", "\\#",
         "[", "\\[",
         "]", "\\]",
@@ -433,4 +448,19 @@ func escapeMarkdownText(s string) string {
 // Экранирование символов для ячеек таблицы
 func escapeMarkdownCell (s string) string {
 	return strings.ReplaceAll(s, "|", "\\|")
+}
+
+func sortEventsByTime(events []*Event) {
+	if (len(events) == 0) {
+		return
+	}
+
+	sort.Slice(events, func(i, j int) bool {
+		time_i, _ := time.Parse(time.RFC3339, events[i].TimeStamp)
+		time_j, _ := time.Parse(time.RFC3339, events[j].TimeStamp)	
+		if time_i.Equal(time_j) {
+			return events[i].EventID < events[j].EventID
+		}
+		return time_i.Before(time_j)
+	})
 }

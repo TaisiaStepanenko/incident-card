@@ -140,12 +140,12 @@ func main() {
 		buildFileGroup := req.IncludeSameFile != nil && *req.IncludeSameFile
 		buildDestGroup := req.IncludeSameDestination != nil && *req.IncludeSameDestination
 
-		events, index, err := internal.ReadEvents(*eventsFile, buildUserGroup, buildFileGroup, buildDestGroup)
+		index, err := internal.ReadEvents(*eventsFile, buildUserGroup, buildFileGroup, buildDestGroup)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Прочитано %d событий\n", len(events))
+		fmt.Printf("Прочитано %d событий\n", len(index.TimeIndex))
 
 		mainEvent, isExist := index.GetEvent(*eventId)
 		if !isExist {
@@ -184,7 +184,7 @@ func main() {
 			rules = factArr.Factors
 		}
 
-		answer, err := internal.BuildAnswer(mainEvent, index, events, *eventsFile , req, rules)
+		answer, err := internal.BuildAnswer(mainEvent, index, *eventsFile , req, rules)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка построения карточки: %v\n", err)
 			os.Exit(1)
@@ -268,12 +268,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		events, err := internal.GenerateEvents(*count, *scenario, *seed)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка генерации: %v\n", err)
-			os.Exit(1)
-		}
-
 		jsonlFileOpen, err := os.OpenFile(*outGenFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Не удалось открыть файл %s: %v\n", *outGenFile, err)
@@ -281,23 +275,11 @@ func main() {
 		}
 		defer jsonlFileOpen.Close()
 
-		for _, event := range events {
-			data, err := json.Marshal(event)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Ошибка сериализации JSONL: %v\n", err)
-				os.Exit(1)
-			}
-			_, err = jsonlFileOpen.Write(data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Ошибка записи в файл: %v\n", err)
-				os.Exit(1)
-			}
-			_, err = jsonlFileOpen.Write([]byte("\n"))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Ошибка записи перевода строки в файл: %v\n", err)
-				os.Exit(1)
-			}
+		err = internal.GenerateEventsToWriter(jsonlFileOpen, *count, *scenario, *seed)
+		if (err != nil) {
+			fmt.Fprintf(os.Stderr, "Ошибка генерации: %v\n", err)
 		}
+
 		fmt.Printf("JSON сохранён в файл %s\n", *outGenFile)
 	default:
 		fmt.Fprintf(os.Stderr, "Команда %s не поддерживается программой. Попробуйте заменить её на build или generate\n", os.Args[1])

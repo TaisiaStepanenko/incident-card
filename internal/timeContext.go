@@ -6,8 +6,7 @@ import (
 	"time"
 )
 
-func GetEventsInTimeRange(events []*Event, mainEventTime, beforeEvent, afterEvent string) ([]*Event, error) {
-	var eventsInRange []*Event
+func GetEventsInTimeRange(index Index, mainEventTime, beforeEvent, afterEvent string) ([]*Event, error) {
 	var beforeMainTime, afterMainTime time.Duration
 	var err error
 
@@ -32,24 +31,21 @@ func GetEventsInTimeRange(events []*Event, mainEventTime, beforeEvent, afterEven
 	startTime := mainTime.Add(-beforeMainTime)
 	endTime := mainTime.Add(afterMainTime)
 
-	for _, event := range events {
-		eventTime, err := time.Parse(time.RFC3339, event.TimeStamp)
-		if err != nil {
-			continue
-		}
-
-		if (eventTime.Equal(startTime) || eventTime.After(startTime)) &&
-			(eventTime.Equal(endTime) || eventTime.Before(endTime)) {
-			eventsInRange = append(eventsInRange, event)
-		}
-	}
-
-	// сортировка по времени, от более ранних событий к более поздним
-	sort.Slice(eventsInRange, func(i, j int) bool {
-		time_i, _ := time.Parse(time.RFC3339, eventsInRange[i].TimeStamp)
-		time_j, _ := time.Parse(time.RFC3339, eventsInRange[j].TimeStamp)
-		return time_i.Before(time_j)
+	// Поиск первого события >= startTime
+	left := sort.Search(len(index.TimeIndex), func(i int) bool {
+		t, _ := time.Parse(time.RFC3339, index.TimeIndex[i].TimeStamp)
+		return !t.Before(startTime)
 	})
 
-	return eventsInRange, nil
+	// Поиск первого события < endTime
+	right := sort.Search(len(index.TimeIndex), func(i int) bool {
+		t, _ := time.Parse(time.RFC3339, index.TimeIndex[i].TimeStamp)
+		return t.After(endTime)
+	})
+
+	if (left > right) {
+		return []*Event{}, nil
+	}
+
+	return index.TimeIndex[left:right], nil
 }

@@ -308,14 +308,14 @@ func TestCheckRules(t *testing.T) {
 	}
 
 	rules := []Rule{
-		{Title: "Внешний адресат", Condition: Condition{Field: "destination_type", Equals: strPtr("external")}},
-		{Title: "Клиентские данные", Condition: Condition{Field: "content_classes", Contains: strPtr("client_data")}},
-		{Title: "События высокой важности", Condition: Condition{Field: "severity", Equals: strPtr("high")}},
-		{Title: "Файл txt", Condition: Condition{Field: "file_name", Contains: strPtr(".txt")}},
-		{Title: "Слишком большой файл", Condition: Condition{Field: "size_bytes", Gte: int64SizeBytes(12827381273)}},
+		{FactorID: "external_destination", Title: "Внешний адресат", Condition: Condition{Field: "destination_type", Equals: strPtr("external")}},
+		{FactorID: "high_severity", Title: "События высокой важности", Condition: Condition{Field: "severity", Equals: strPtr("high")}},
+		{FactorID: "txt_file", Title: "Файл txt", Condition: Condition{Field: "file_name", Contains: strPtr(".txt")}},
+		{FactorID: "client_data", Title: "Клиентские данные", Condition: Condition{Field: "content_classes", Contains: strPtr("client_data")}},
+		{FactorID: "large_file", Title: "Слишком большой файл", Condition: Condition{Field: "size_bytes", Gte: int64SizeBytes(12827381273)}},
 	}
 
-	expectedList := []string{"Внешний адресат", "События высокой важности", "Файл txt"}
+	expectedList := []string{"external_destination", "high_severity", "txt_file"}
 
 	result := CheckRules(event, rules)
 	assert.Equal(t, expectedList, result)
