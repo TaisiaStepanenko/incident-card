@@ -96,6 +96,16 @@ func BuildAnswer(mainEvent *Event, index Index, fileName string, req Request, ru
 
 		// Обрезаем до limit
 		timelineItems = timelineItems[:limit]
+		
+		sort.Slice(timelineItems, func(i, j int) bool {
+		time_i, _ := time.Parse(time.RFC3339, timelineItems[i].Timestamp)
+		time_j, _ := time.Parse(time.RFC3339, timelineItems[j].Timestamp)
+		if time_i.Equal(time_j) {
+			return timelineItems[i].EventID < timelineItems[j].EventID
+		}
+		return time_i.Before(time_j)
+	})
+		
 	}
 
 

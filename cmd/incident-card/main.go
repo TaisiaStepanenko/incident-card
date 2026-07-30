@@ -278,6 +278,7 @@ func main() {
 		err = internal.GenerateEventsToWriter(jsonlFileOpen, *count, *scenario, *seed)
 		if (err != nil) {
 			fmt.Fprintf(os.Stderr, "Ошибка генерации: %v\n", err)
+			os.Exit(1)
 		}
 
 		fmt.Printf("JSON сохранён в файл %s\n", *outGenFile)

@@ -10,7 +10,7 @@ func CheckRules(event *Event, rules []Rule) []string {
 	var suspicious []string
 	for _, factor := range rules {
 		if CheckCondition(event, factor.Condition) {
-			suspicious = append(suspicious, factor.FactorID)
+			suspicious = append(suspicious, factor.Title)
 		}
 	}
 	return suspicious

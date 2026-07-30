@@ -1,6 +1,9 @@
 package internal
 
 import (
+	"bytes"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -190,5 +193,49 @@ func TestGenerateStructuredBenchmarkEvents(t *testing.T) {
 			t.Errorf("Не задан channel")
 		}
 	}
+}
+
+
+func TestGenerateEventsToWriterSuccess(t *testing.T) {
+	var buf bytes.Buffer
+	count := 5
+	scenario := "external_send"
+	seed := int64(42)
+
+	err := GenerateEventsToWriter(&buf, count, scenario, seed)
+	require.NoError(t, err)
+
+	// Проверяем, что было записано ровно count строк
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	assert.Len(t, lines, count)
+
+	// Проверяем, что каждая строка - валидный JSON с обязательными полями
+	for i, line := range lines {
+		var event Event
+		err := json.Unmarshal([]byte(line), &event)
+		require.NoError(t, err, "line %d is not valid JSON", i+1)
+		assert.NotEmpty(t, event.EventID)
+		assert.NotEmpty(t, event.TimeStamp)
+		assert.NotEmpty(t, event.UserID)
+		assert.NotEmpty(t, event.MachineID)
+		assert.NotEmpty(t, event.Action)
+		assert.NotEmpty(t, event.Channel)
+	}
+}
+
+// Count равно 0
+func TestGenerateEventsToWriterInvalidCount(t *testing.T) {
+	var buf bytes.Buffer
+	err := GenerateEventsToWriter(&buf, 0, "external_send", 42)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Некорректное значение count:")
+}
+
+// Запрошен неизвестный сценарий
+func TestGenerateEventsToWriterUnknownScenario(t *testing.T) {
+	var buf bytes.Buffer
+	err := GenerateEventsToWriter(&buf,100, "unknown_scenario", 42)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Неизвестный сценарий")
 }
 
